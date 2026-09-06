@@ -1,4 +1,10 @@
-# Planejador de refeições com IA
+<p align="center">
+  <img src="docs/brand/bora-de-prato-logo.png" alt="Bora de Prato: prato e garfo em branco sobre fundo verde profundo" width="800">
+</p>
+
+# Bora de Prato
+
+**Menos dúvida. Mais comida na mesa.**
 
 Projeto de portfólio para facilitar a escolha entre cozinhar e pedir comida pronta, com histórico e resumos compartilháveis.
 
@@ -63,4 +69,6 @@ O repositório não contém receitas pré-fabricadas para fingir respostas de IA
 - [Preços do D1](https://developers.cloudflare.com/d1/platform/pricing/)
 - [Limites da Groq](https://console.groq.com/docs/rate-limits)
 
-Autor: René Guimarães. Nome do produto e licença de distribuição a definir.
+Autor: René Guimarães. Licença de distribuição a definir.
+
+Identidade visual inicial: [conceito e origem da logo](docs/brand/README.md).
