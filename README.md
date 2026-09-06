@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="docs/brand/bora-de-prato-logo.png" alt="Bora de Prato: prato e garfo em branco sobre fundo verde profundo" width="800">
+  <img src="docs/brand/refeicao-facil-logo.png" alt="Refeição Fácil: prato e garfo em branco sobre fundo verde profundo" width="800">
 </p>
 
-# Bora de Prato
+# Refeição Fácil
 
-**Menos dúvida. Mais comida na mesa.**
+**Sua próxima refeição, resolvida.**
 
 Projeto de portfólio para facilitar a escolha entre cozinhar e pedir comida pronta, com histórico e resumos compartilháveis.
 

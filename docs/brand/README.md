@@ -1,16 +1,22 @@
-# Bora de Prato
+# Refeição Fácil
 
-Proposta inicial de nome e identidade para o projeto de portfólio.
+Nome aprovado por Renê em 2026-09-06 para o projeto de portfólio.
 
-“Bora” transmite convite e ação; “Prato” abrange tanto cozinhar quanto pedir pronto. A assinatura é “Menos dúvida. Mais comida na mesa.”
+“Refeição Fácil” comunica a finalidade do app em português e abrange cozinhar, pedir pronto e planejar diferentes refeições do dia. A assinatura é “Sua próxima refeição, resolvida.”
 
 O símbolo reúne prato circular, garfo e traços de movimento. Verde profundo e branco suave mantêm a leitura simples e acompanham a direção visual discutida para o aplicativo.
 
 ## Arquivo
 
-`bora-de-prato-logo.png`: composição horizontal raster para o README. Criada com a ferramenta integrada de geração de imagens, com revisão visual e uma rodada de limpeza. Não é um arquivo vetorial nem o ícone instalável final da PWA.
+`refeicao-facil-logo.png`: composição horizontal raster para o README, adaptada com a ferramenta integrada de geração de imagens e revisada visualmente quanto à legibilidade e acentuação. Não é um arquivo vetorial nem o ícone instalável final da PWA. A versão anterior `bora-de-prato-logo.png` permanece como histórico de exploração.
 
-O nome é uma proposta criativa; disponibilidade de marca e domínio não foi verificada.
+Disponibilidade de marca e domínio não foi verificada. O endereço técnico do repositório permanece `planejador-refeicoes-ia`.
+
+## Prompt de adaptação para o nome aprovado
+
+Edit this logo header. Replace only the brand lettering "Bora de Prato" with the exact Brazilian Portuguese name "Refeição Fácil", on two lines "Refeição" then "Fácil". Spell accents correctly: ç and ã in Refeição; á in Fácil. Preserve the original plate and fork symbol on the left, the deep forest green opaque background, off-white solid lettering, rounded bold sans-serif style and generous horizontal margins. Adjust wordmark size to fit cleanly without crowding the symbol. Professional crisp smooth flat edges. No extra text, no tagline, no watermark, no transparency. Landscape logo header for GitHub README.
+
+Os prompts abaixo documentam a exploração anterior.
 
 ## Prompt inicial
 
