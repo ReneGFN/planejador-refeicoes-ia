@@ -1,0 +1,19 @@
+{
+  "name": "planejador-refeicoes-ia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "check": "node --check functions/api/health.js && node --check functions/api/generate.js",
+    "test": "node --test",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "build": "npm run check && wrangler pages functions build --outdir .build"
+  },
+  "devDependencies": {
+    "wrangler": "4.129.0"
+  }
+}
