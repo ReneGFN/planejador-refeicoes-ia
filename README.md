@@ -10,6 +10,8 @@ Projeto de portfólio para facilitar a escolha entre cozinhar e pedir comida pro
 
 **Estado: fundação técnica. Ainda não há demo funcional de IA nem PWA instalável.**
 
+Acompanhe o [checklist de implementação](docs/CHECKLIST.md), com o que já foi verificado e as etapas pendentes.
+
 ## Arquitetura escolhida
 
 - GitHub: código público e verificações automáticas.
