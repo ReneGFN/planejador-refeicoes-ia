@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Apenas administração dos bancos remotos; não usar para publicar a aplicação.
+  "name": "planejador-refeicoes-ia-d1-admin",
+  "account_id": "2234b696cf0f6258af28f13974e446ec",
+  "compatibility_date": "2026-09-06",
+  "d1_databases": [
+    {
+      "binding": "DB_PRODUCTION",
+      "database_name": "planejador-refeicoes-ia",
+      "database_id": "fe6371c5-bfb6-497e-94a1-ba467e060ff3",
+      "migrations_dir": "migrations"
+    },
+    {
+      "binding": "DB_PREVIEW",
+      "database_name": "planejador-refeicoes-ia-preview",
+      "database_id": "c4a549cf-8629-44ec-a179-ba9968c2efae",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
