@@ -71,6 +71,6 @@ O repositório não contém receitas pré-fabricadas para fingir respostas de IA
 - [Preços do D1](https://developers.cloudflare.com/d1/platform/pricing/)
 - [Limites da Groq](https://console.groq.com/docs/rate-limits)
 
-Autor: René Guimarães. Licença de distribuição a definir.
+Autor: Renê Guimarães. Licença de distribuição a definir.
 
 Identidade visual inicial: [conceito e origem da logo](docs/brand/README.md).
