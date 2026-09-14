@@ -6,8 +6,15 @@
   "vars": {
     "GROQ_MODEL": "openai/gpt-oss-20b",
     "AI_ENABLED": "false",
-    "VISITOR_DAILY_LIMIT": "3",
-    "GLOBAL_DAILY_LIMIT": "80",
+    "SESSIONS_ENABLED": "false",
+    "VISION_ENABLED": "false",
+    "PERSONALIZATION_ENABLED": "false",
+    "DIARY_ENABLED": "false",
+    "PANTRY_ENABLED": "false",
+    "HISTORY_DELETION_ENABLED": "false",
+    "VIDEO_ENABLED": "false",
+    "VIDEO_QUOTA_POLICY_JSON": "{}",
+    "QUOTA_POLICY_JSON": "{}",
     "MAX_CONTEXT_CHARACTERS": "400"
   },
   "d1_databases": [{
@@ -22,8 +29,15 @@
       "vars": {
         "GROQ_MODEL": "openai/gpt-oss-20b",
         "AI_ENABLED": "false",
-        "VISITOR_DAILY_LIMIT": "3",
-        "GLOBAL_DAILY_LIMIT": "80",
+        "SESSIONS_ENABLED": "false",
+        "VISION_ENABLED": "false",
+        "PERSONALIZATION_ENABLED": "false",
+        "DIARY_ENABLED": "false",
+        "PANTRY_ENABLED": "false",
+        "HISTORY_DELETION_ENABLED": "false",
+        "VIDEO_ENABLED": "false",
+        "VIDEO_QUOTA_POLICY_JSON": "{}",
+        "QUOTA_POLICY_JSON": "{}",
         "MAX_CONTEXT_CHARACTERS": "400"
       },
       "d1_databases": [{
@@ -36,10 +50,17 @@
     "preview": {
       "vars": {
         "GROQ_MODEL": "openai/gpt-oss-20b",
-        "AI_ENABLED": "false",
-        "VISITOR_DAILY_LIMIT": "3",
-        "GLOBAL_DAILY_LIMIT": "80",
-        "MAX_CONTEXT_CHARACTERS": "400"
+        "AI_ENABLED": "true",
+        "SESSIONS_ENABLED": "true",
+        "VISION_ENABLED": "true",
+        "PERSONALIZATION_ENABLED": "true",
+        "DIARY_ENABLED": "true",
+        "PANTRY_ENABLED": "true",
+        "HISTORY_DELETION_ENABLED": "true",
+        "VIDEO_ENABLED": "false",
+        "VIDEO_QUOTA_POLICY_JSON": "{}",
+        "QUOTA_POLICY_JSON": "{\"ingress\":{\"visitorDay\":1,\"visitorMinute\":1,\"networkDay\":240,\"networkMinute\":30,\"globalDay\":1000,\"globalMinute\":120,\"dayTokens\":0,\"minuteTokens\":0,\"reserveTokens\":0},\"session\":{\"visitorDay\":1,\"visitorMinute\":1,\"networkDay\":60,\"networkMinute\":10,\"globalDay\":500,\"globalMinute\":60,\"dayTokens\":0,\"minuteTokens\":0,\"reserveTokens\":0},\"generation\":{\"visitorDay\":3,\"visitorMinute\":1,\"networkDay\":12,\"networkMinute\":2,\"globalDay\":20,\"globalMinute\":1,\"dayTokens\":120000,\"minuteTokens\":7000,\"reserveTokens\":6144},\"vision\":{\"visitorDay\":2,\"visitorMinute\":1,\"networkDay\":4,\"networkMinute\":1,\"globalDay\":5,\"globalMinute\":1,\"dayTokens\":30000,\"minuteTokens\":7000,\"reserveTokens\":4096}}",
+        "MAX_CONTEXT_CHARACTERS": "1200"
       },
       "d1_databases": [{
         "binding": "DB",

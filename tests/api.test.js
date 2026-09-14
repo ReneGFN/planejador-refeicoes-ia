@@ -10,7 +10,7 @@ test('health não anuncia geração disponível nesta fase', async () => {
 });
 
 test('geração permanece bloqueada mesmo com configuração habilitada', async () => {
-  const response = onRequestPost({ env: { AI_ENABLED: 'true' } });
+  const response = await onRequestPost({ env: { AI_ENABLED: 'true' } });
   assert.equal(response.status, 503);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
   assert.equal((await response.json()).code, 'NOT_READY');

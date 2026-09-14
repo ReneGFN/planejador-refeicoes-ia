@@ -1,0 +1,140 @@
+/* No global preflight: the existing form and bottom sheet keep their CSS. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "../components";
+@source "./";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--color-page, #FBF1E0);
+  --color-foreground: var(--color-ink, #064E3B);
+  --color-primary: var(--color-ink, #064E3B);
+  --color-muted: var(--glass-highlight, #F8E7C9);
+  --color-muted-foreground: var(--color-muted);
+  --color-accent: var(--app-accent);
+  --color-border: var(--app-border);
+}
+
+.expandable-tabs { border-style: solid; }
+.expandable-tab {
+  min-height: 48px;
+  min-width: 44px;
+  border: 0;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgb(6 78 59 / 10%);
+}
+.expandable-tab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.meal-navigation {
+  position: fixed;
+  z-index: 5;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+}
+.meal-navigation-glass {
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 28px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-fill);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: var(--nav-shadow);
+}
+.meal-navigation { width: min(460px, calc(100% - 24px)); }
+.meal-navigation .expandable-tab { border-radius: 21px; font-weight: 650; flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 2px; }
+.tab-label { font-size: 10px; line-height: 1.2; white-space: nowrap; }
+@media (max-width: 360px) { .tab-label { font-size: 9px; } .meal-navigation-glass { gap: 0; padding: 4px; } }
+/* Reserve a separate lane for navigation without inflating the sheet footer. */
+bottom-sheet {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  --sheet-max-height: calc(100dvh - 96px - env(safe-area-inset-bottom));
+}
+.sheet-head { flex-wrap: wrap; gap: 0; }
+.sheet-head > span { display: flex; flex-wrap: wrap; gap: 8px; }
+bottom-sheet::part(sheet), bottom-sheet::part(header), bottom-sheet::part(content), bottom-sheet::part(footer) {
+  box-sizing: border-box;
+}
+#inicio, #planos, #compras { scroll-margin-top: 100px; }
+body { min-width: 0; }
+/* Compact must still fit its header, one question and footer on short phones. */
+bottom-sheet .initial { --snap: max(33%, min(400px, 70%)); }
+@media (prefers-reduced-transparency: reduce) {
+  .meal-navigation-glass { background: var(--glass-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .meal-navigation-glass { background: var(--glass-solid); }
+}
+
+/* Light values match the approved app; dark is a separate green/black palette. */
+:root {
+  --app-accent: #9A3412;
+  --app-border: #8C7B61;
+  --glass-solid: #FDF6EA;
+  --nav-shadow: 0 8px 24px rgb(6 78 59 / 10%), inset 0 1px 0 rgb(255 255 255 / 65%);
+  --toggle-track: #FFFFFF;
+  --toggle-thumb: #F8E7C9;
+  --glow-green: rgb(22 163 74 / 24%);
+  --glow-gold: rgb(217 154 45 / 20%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-page: #080D0B;
+  --color-surface: #111C17;
+  --color-cream: #1A3025;
+  --color-ink: #E4F3EA;
+  --color-muted: #A7BDB0;
+  --color-action: #65D69A;
+  --color-on-action: #082315;
+  --color-accent: #65D69A;
+  --app-accent: #65D69A;
+  --color-border: #608370;
+  --app-border: #608370;
+  --color-divider: #2C4538;
+  --color-focus: #8FF0BC;
+  --color-danger: #FFAAA3;
+  --color-warn: #EDC778;
+  --glass-fill: rgb(17 28 23 / 92%);
+  --glass-highlight: #1E382A;
+  --glass-border: #3C604B;
+  --glass-solid: #111C17;
+  --nav-shadow: 0 8px 24px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(143 240 188 / 8%);
+  --sheet-shadow: 0 -12px 32px rgb(0 0 0 / 35%);
+  --toggle-track: #080D0B;
+  --toggle-thumb: #1E382A;
+  --glow-green: rgb(101 214 154 / 22%);
+  --glow-gold: rgb(237 199 120 / 14%);
+}
+:root[data-theme="dark"] .brand,
+:root[data-theme="dark"] .mark { color: var(--color-action); }
+
+.header-actions { display: flex; flex-shrink: 0; align-items: center; gap: 8px; }
+#pwa-status { display: flex; align-items: center; }
+.pwa-chip { min-height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); color: var(--color-ink); font: inherit; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.pwa-action { cursor: pointer; transition: border-color 160ms ease, transform 160ms ease, background 160ms ease; }
+.pwa-action:hover { border-color: var(--color-action); background: var(--glass-highlight); transform: translateY(-1px); }
+.pwa-action:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+#theme-toggle { width: 64px; min-height: 44px; display: flex; align-items: center; }
+.theme-toggle { width: 64px; min-height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer; touch-action: manipulation; }
+.theme-toggle-track { border: 1px solid var(--color-border); background: var(--toggle-track); color: var(--color-muted); }
+.theme-toggle-thumb { left: 3px; background: var(--toggle-thumb); transform: translateX(32px); transition: transform 200ms ease; }
+.theme-toggle[aria-checked="true"] .theme-toggle-thumb { transform: translateX(0); }
+.theme-toggle[aria-checked="true"] .theme-toggle-track > span:nth-child(2),
+.theme-toggle[aria-checked="false"] .theme-toggle-track > span:nth-child(3) { color: var(--color-ink); }
+.theme-toggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; border-radius: 999px; }
+.theme-toggle:hover .theme-toggle-track { border-color: var(--color-ink); }
+@media (prefers-reduced-motion: reduce) { .theme-toggle-thumb { transition: none; } }
+@media (max-width: 380px) {
+  .topbar { padding-inline: 12px; gap: 8px; flex-wrap: wrap; }
+  .brand { gap: 6px; font-size: 1rem; }
+  .brand .mark { width: 28px; height: 28px; }
+  .header-actions { gap: 4px; }
+  .header-actions .icon { width: 32px; }
+  .pwa-chip { width: 36px; padding-inline: 9px; overflow: hidden; color: transparent; gap: 0; }
+  .pwa-chip svg { color: var(--color-ink); flex: 0 0 auto; }
+}
