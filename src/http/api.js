@@ -20,6 +20,12 @@ import { analyzeImageWithGroq } from '../providers/groq-vision.js';
 import { ProviderError, validateProviderOptions } from '../providers/groq-client.js';
 
 const ERRORS = {
+  AUTH_ERROR: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
+  NETWORK_ERROR: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
+  PROVIDER_UNAVAILABLE: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
+  INVALID_PROVIDER_RESPONSE: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
+  UNEXPECTED_MODEL: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
+  INVALID_API_KEY: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
   NOT_READY: [503, 'Esta função está em preparação. Nenhuma chamada à IA foi iniciada.'],
   ORIGIN_FORBIDDEN: [403, 'Abra o aplicativo pelo endereço original e tente novamente.'],
   SESSION_REQUIRED: [401, 'Sua sessão não está disponível. Inicie uma sessão para continuar.'],
@@ -52,8 +58,8 @@ function failure(error, reserved = false) {
   const known = error instanceof SessionError || error instanceof QuotaError || error instanceof HttpInputError || error instanceof ProviderError || error instanceof ImageContractError;
   const proposed = error instanceof ContractError && !(error instanceof ImageContractError) ? 'INVALID_INPUT' : known ? error.code : '';
   const code = Object.hasOwn(ERRORS, proposed) ? proposed : 'SERVICE_UNAVAILABLE';
-  const [status, message] = ERRORS[code];
-  return jsonResponse({ code, message, quotaReserved: reserved }, status);
+  const [status, message, publicCode = code] = ERRORS[code];
+  return jsonResponse({ code: publicCode, message, quotaReserved: reserved }, status);
 }
 function observeAi(operation, outcome, { code = null, elapsedMs = null, usage = null, diagnostic = null } = {}) {
   // Evento operacional fechado, composto somente pelas métricas agregadas abaixo.
@@ -125,7 +131,8 @@ export function apiConfigurationReason(env, operation) {
     return 'ok';
   } catch (error) {
     // Apenas categorias fixas: nunca serializar mensagem, política ou valor de env.
-    return error instanceof ConfigurationError ? error.reason : 'config_error';
+    return error instanceof ConfigurationError ? error.reason
+      : error instanceof ProviderError && error.code === 'INVALID_API_KEY' ? 'secret_invalid' : 'config_error';
   }
 }
 

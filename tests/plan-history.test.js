@@ -62,6 +62,30 @@ async function setup(t) {
   return { DB, env, policy, state, handlers, request, send, session, cookie, visitor, rows, quota };
 }
 
+for (const code of ['AUTH_ERROR', 'NETWORK_ERROR', 'PROVIDER_UNAVAILABLE', 'INVALID_PROVIDER_RESPONSE', 'UNEXPECTED_MODEL']) {
+  test(`apelido HTTP ${code}: preserva corpo genérico e código operacional`, async t => {
+    const h = await setup(t), logs = [];
+    t.mock.method(console, 'log', line => logs.push(JSON.parse(line)));
+    const handlers = createApiHandlers({ fetchImpl: async () => { throw new ProviderError(code); } });
+    const response = await handlers.generate({ env: h.env, request: h.request({ cookie: h.cookie }) });
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'O serviço está temporariamente indisponível.', quotaReserved: true }));
+    assert.equal(logs.at(-1).code, code);
+  });
+}
+
+test('chave malformada: HTTP genérico, log distinto e nenhuma reserva ou chamada', async t => {
+  const h = await setup(t);
+  h.env.GROQ_API_KEY = 'abc\ndef';
+  const logs = [];
+  t.mock.method(console, 'log', line => logs.push(JSON.parse(line)));
+  const response = await h.send({ cookie: h.cookie });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { code: 'SERVICE_UNAVAILABLE', message: 'O serviço está temporariamente indisponível.', quotaReserved: false });
+  assert.equal(h.state.calls, 0); assert.equal(h.quota().length, 0);
+  assert.equal(logs.at(-1).code, 'INVALID_API_KEY');
+});
+
 test('diagnóstico técnico permanece no log e HTTP conserva resposta exata', async t => {
   const h = await setup(t);
   const logs = [];

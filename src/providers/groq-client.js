@@ -34,6 +34,7 @@ export function technicalCategory(error, phase) {
 
 export function validateProviderOptions({ apiKey, timeoutMs = 30000 } = {}) {
   if (typeof apiKey !== 'string' || !apiKey.trim()) throw new ProviderError('MISSING_API_KEY');
+  if (!/^[\x21-\x7e]{1,1024}$/u.test(apiKey)) throw new ProviderError('INVALID_API_KEY');
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new ProviderError('INVALID_TIMEOUT');
 }
 
