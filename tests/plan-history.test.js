@@ -62,6 +62,20 @@ async function setup(t) {
   return { DB, env, policy, state, handlers, request, send, session, cookie, visitor, rows, quota };
 }
 
+test('diagnóstico técnico permanece no log e HTTP conserva resposta exata', async t => {
+  const h = await setup(t);
+  const logs = [];
+  t.mock.method(console, 'log', line => logs.push(JSON.parse(line)));
+  const handlers = createApiHandlers({ fetchImpl: async () => {
+    throw new TypeError('SECRET https://private', { cause: { code: 'ENOTFOUND' } });
+  } });
+  const response = await handlers.generate({ env: h.env, request: h.request({ cookie: h.cookie }) });
+  assert.equal(response.status, 503);
+  assert.equal(await response.text(), JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'O serviço está temporariamente indisponível.', quotaReserved: true }));
+  assert.equal(logs.at(-1).diagnostic.category, 'DNS');
+  assert.doesNotMatch(JSON.stringify(logs), /SECRET|private/);
+});
+
 test('histórico HTTP: lista e exclui somente planos da sessão', async t => {
   const h = await setup(t); await h.send({ cookie: h.cookie, body: cook });
   const headers = { Origin: 'https://history.test', Cookie: h.cookie, 'CF-Connecting-IP': '192.0.2.1' };

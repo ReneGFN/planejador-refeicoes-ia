@@ -3,9 +3,33 @@ const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_RESPONSE_BYTES = 256 * 1024;
 
 export class ProviderError extends Error {
-  constructor(code, usage = null) {
+  constructor(code, usage = null, diagnostic = null) {
     super(code); this.name = 'ProviderError'; this.code = code; this.usage = usage;
+    this.diagnostic = diagnostic;
   }
+}
+
+// Somente vocabulário fechado: nomes/códigos arbitrários podem conter segredos.
+export function technicalCategory(error, phase) {
+  const names = ['Error', 'TypeError', 'RangeError', 'SyntaxError', 'AbortError', 'TimeoutError'];
+  const codes = ['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT',
+    'CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    'ERR_TLS_CERT_ALTNAME_INVALID', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET'];
+  let name = 'UNKNOWN', causeCode = null, category = 'UNCLASSIFIED';
+  try {
+    if (names.includes(error?.name)) name = error.name;
+    const candidate = error?.cause?.code ?? error?.code;
+    if (candidate !== undefined) causeCode = codes.includes(candidate) ? candidate : 'OTHER';
+    if (['ENOTFOUND', 'EAI_AGAIN'].includes(causeCode)) category = 'DNS';
+    else if (causeCode?.includes('CERT') || causeCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') category = 'TLS';
+    else if (causeCode && causeCode !== 'OTHER') category = 'CONNECTION';
+    // Correspondência exata, nunca copiar ou registrar mensagem do transporte.
+    else if (error?.cause?.message === 'unexpected redirect'
+      || error?.message === 'Fetch API cannot follow redirect when redirect: "error" is set.') category = 'REDIRECT_REJECTED';
+    else if (phase === 'request') category = 'REQUEST_BUILD';
+    else if (phase === 'response_body') category = 'BODY_READ';
+  } catch { /* Getters hostis não podem quebrar o diagnóstico. */ }
+  return { phase, name, cause_code: causeCode, category };
 }
 
 export function validateProviderOptions({ apiKey, timeoutMs = 30000 } = {}) {
@@ -71,12 +95,16 @@ export async function completeWithGroq(body, validateContent, { apiKey, fetchImp
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const started = Date.now();
+  let phase = 'request';
   try {
-    const response = await fetchImpl(ENDPOINT, {
+    const init = {
       method: 'POST', redirect: 'error', signal: controller.signal,
       headers: { Authorization: `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    };
+    phase = 'fetch';
+    const response = await fetchImpl(ENDPOINT, init);
+    phase = 'response_body';
     if (!response.ok) {
       if (response.status === 400) throw new ProviderError(await rejectedRequestCode(response, controller.signal));
       await response.body?.cancel();
@@ -98,6 +126,8 @@ export async function completeWithGroq(body, validateContent, { apiKey, fetchImp
     return { data, metadata: { model: envelope.model, usage, elapsed_ms: Date.now() - started } };
   } catch (error) {
     if (error instanceof ProviderError) throw error;
-    throw new ProviderError(controller.signal.aborted ? 'TIMEOUT' : 'NETWORK_ERROR');
+    throw new ProviderError(controller.signal.aborted ? 'TIMEOUT'
+      : phase === 'response_body' ? 'RESPONSE_READ_ERROR'
+        : phase === 'request' ? 'REQUEST_BUILD_ERROR' : 'NETWORK_ERROR', null, technicalCategory(error, phase));
   } finally { clearTimeout(timer); }
 }

@@ -55,12 +55,13 @@ function failure(error, reserved = false) {
   const [status, message] = ERRORS[code];
   return jsonResponse({ code, message, quotaReserved: reserved }, status);
 }
-function observeAi(operation, outcome, { code = null, elapsedMs = null, usage = null } = {}) {
+function observeAi(operation, outcome, { code = null, elapsedMs = null, usage = null, diagnostic = null } = {}) {
   // Evento operacional fechado, composto somente pelas métricas agregadas abaixo.
   const event = { event: 'ai_operation', operation, outcome,
     code: typeof code === 'string' && code.length <= 40 ? code : 'UNEXPECTED',
     elapsed_ms: Number.isSafeInteger(elapsedMs) && elapsedMs >= 0 ? elapsedMs : null,
     total_tokens: Number.isSafeInteger(usage?.total_tokens) && usage.total_tokens >= 0 ? usage.total_tokens : null };
+  if (diagnostic) event.diagnostic = diagnostic;
   console.log(JSON.stringify(event));
 }
 class ConfigurationError extends Error {
@@ -346,7 +347,8 @@ export function createApiHandlers({ fetchImpl } = {}) {
     } catch (error) {
       if (reservation) await finishUsage(env, reservation.id, false, error instanceof ProviderError ? error.usage?.total_tokens : actualTokens).catch(() => {});
       observeAi(operation, 'failed', { code: error?.code, elapsedMs: Date.now() - operationStarted,
-        usage: error instanceof ProviderError ? error.usage : null });
+        usage: error instanceof ProviderError ? error.usage : null,
+        diagnostic: error instanceof ProviderError ? error.diagnostic : null });
       return failure(error, Boolean(reservation));
     }
   }

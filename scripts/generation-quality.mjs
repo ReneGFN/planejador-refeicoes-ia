@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
 import { generateWithGroq, MODEL, ProviderError } from '../src/providers/groq.js';
-import { validateProviderOptions } from '../src/providers/groq-client.js';
+import { validateProviderOptions, technicalCategory } from '../src/providers/groq-client.js';
 import { ContractError, validateGenerationInput, validateGenerationOutput } from '../src/contracts/generation.js';
 import { QUALITY_CASES } from './fixtures/generation-quality-cases.mjs';
 import { EQUIPMENT_CASES } from './fixtures/equipment-quality-cases.mjs';
@@ -86,7 +86,7 @@ export async function evaluateCase(entry, { apiKey, fetchImpl = fetch, saveRaw, 
   const state = { bytes: Buffer.alloc(0), raw_complete: false, capture_limited: false };
   let httpStatus = null, providerElapsed = null, requestSettings = null;
   let storageError = false, rawSaved = false, providerCode = null, adapterElapsed = null;
-  let comparison = null;
+  let comparison = null, providerDiagnostic = null;
   const started = performance.now();
   try {
     const result = await generateWithGroq(entry.input, { apiKey, timeoutMs, fetchImpl: async (url, init) => {
@@ -98,7 +98,11 @@ export async function evaluateCase(entry, { apiKey, fetchImpl = fetch, saveRaw, 
       try {
         response = await fetchImpl(url, init);
         httpStatus = response.status;
-        await captureBody(response, init.signal, state);
+        try { await captureBody(response, init.signal, state); }
+        catch (error) {
+          if (error instanceof ProviderError) throw error;
+          throw new ProviderError('RESPONSE_READ_ERROR', null, technicalCategory(error, 'response_body'));
+        }
       } finally {
         providerElapsed = Math.round((performance.now() - sent) * 1000) / 1000;
         // Await antes de devolver os bytes ao adaptador: bruto salvo ANTES da validação.
@@ -116,6 +120,7 @@ export async function evaluateCase(entry, { apiKey, fetchImpl = fetch, saveRaw, 
     if (storageError) throw new EvaluationError('STORAGE_FAILED');
     if (!(error instanceof ProviderError)) throw error;
     providerCode = error.code;
+    providerDiagnostic = error.diagnostic;
   }
   if (!rawSaved) throw new EvaluationError('EVALUATION_FAILED');
   let envelope = null, content = null;
@@ -131,6 +136,7 @@ export async function evaluateCase(entry, { apiKey, fetchImpl = fetch, saveRaw, 
   return {
     case_id: entry.id, input: entry.input, feasible: entry.feasible,
     request_settings: requestSettings, http_status: httpStatus, provider_code: providerCode,
+    provider_diagnostic: providerDiagnostic,
     raw_complete: state.raw_complete, capture_limited: state.capture_limited, raw_bytes: state.bytes.length,
     metadata: { model: typeof envelope?.model === 'string' ? envelope.model : null,
       usage: usageOf(envelope?.usage), provider_elapsed_ms: providerElapsed,
