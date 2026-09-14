@@ -28,6 +28,14 @@ const { outputFiles } = await build({
     import { compareSchemaError } from './tests/helpers/compare-schema-error.js';
     import { videoRuntimeHandler } from './scripts/fixtures/video-runtime-handler.mjs';
     export default { async fetch(request, baseEnv) {
+      // Miniflare pode inserir o IP da conexão antes de chamar este wrapper.
+      // A ausência deve ser injetada DEPOIS dessa entrada, só neste arnês.
+      if (request.headers.get('X-Test-Missing-IP') === 'true') {
+        request = new Request(request);
+        request.headers.delete('CF-Connecting-IP');
+        request.headers.delete('X-Test-Missing-IP');
+        if (request.headers.has('CF-Connecting-IP')) throw Error('Missing-IP fixture failed');
+      }
       // Overrides EXCLUSIVOS deste harness, nunca presentes nas rotas publicáveis.
       const env = { ...baseEnv, ...JSON.parse(request.headers.get('X-Test-Env') || '{}') };
       const path = new URL(request.url).pathname;
@@ -153,7 +161,7 @@ try {
   const calls = async () => (await db.prepare('SELECT COUNT(*) AS n FROM test_calls').first()).n;
   const send = (path, { method = 'POST', cookie = '', body = ready, key = crypto.randomUUID(), headers = {}, overrides, ip = '192.0.2.1' } = {}) => {
     const h = { Origin: 'https://local.test', 'Content-Type': 'application/json', 'Idempotency-Key': key, Cookie: cookie,
-      ...(ip ? { 'CF-Connecting-IP': ip } : {}), ...(overrides ? { 'X-Test-Env': JSON.stringify(overrides) } : {}), ...headers };
+      ...(ip ? { 'CF-Connecting-IP': ip } : { 'X-Test-Missing-IP': 'true' }), ...(overrides ? { 'X-Test-Env': JSON.stringify(overrides) } : {}), ...headers };
     return mf.dispatchFetch('https://local.test' + path, { method, headers: h,
       ...(method === 'GET' ? {} : { body: typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body) }) });
   };
