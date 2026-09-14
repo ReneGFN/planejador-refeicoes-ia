@@ -3,6 +3,7 @@ import { VIDEO_LIMITS, validateVideoInput, validateYouTubeSearchResponse, valida
 
 const ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
 const MESSAGES = Object.freeze({
+  VIDEO_REDIRECT_REJECTED: 'O vídeo de apoio está indisponível no momento.',
   VIDEO_CONFIG_ERROR: 'O vídeo de apoio está indisponível no momento.',
   VIDEO_TIMEOUT: 'A busca do vídeo demorou mais que o esperado.',
   VIDEO_RESPONSE_TOO_LARGE: 'Não foi possível consultar o vídeo de apoio.',
@@ -89,7 +90,7 @@ export async function searchYouTubeVideo(raw, { apiKey, fetchImpl = fetch, timeo
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const pending = Promise.resolve(fetchImpl(url.href, { method: 'GET', redirect: 'error',
+    const pending = Promise.resolve(fetchImpl(url.href, { method: 'GET', redirect: 'manual',
       signal: controller.signal, headers: { Accept: 'application/json', 'X-Goog-Api-Key': apiKey } }))
       .then(async response => {
         if (controller.signal.aborted) {
@@ -98,6 +99,9 @@ export async function searchYouTubeVideo(raw, { apiKey, fetchImpl = fetch, timeo
         return response;
       });
     const response = await untilAbort(pending, controller.signal);
+    if (response.status >= 300 && response.status < 400) {
+      await cancelBody(response.body, controller.signal); throw error('VIDEO_REDIRECT_REJECTED');
+    }
     if (!response.ok) throw await httpError(response, controller.signal);
     const rawResponse = await readJson(response, controller.signal);
     try { return validateYouTubeSearchResponse(rawResponse, input); }

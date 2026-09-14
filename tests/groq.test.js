@@ -11,7 +11,7 @@ test('envia schema estrito, preserva metadados e não devolve raciocínio', asyn
   const result = await generateWithGroq(input, opts(async (url, request) => {
     calls++;
     assert.equal(url, 'https://api.groq.com/openai/v1/chat/completions');
-    assert.equal(request.redirect, 'error');
+    assert.equal(request.redirect, 'manual');
     const body = JSON.parse(request.body);
     assert.equal(body.response_format.json_schema.strict, true);
     assert.equal(body.model, MODEL);

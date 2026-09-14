@@ -20,6 +20,7 @@ import { analyzeImageWithGroq } from '../providers/groq-vision.js';
 import { ProviderError, validateProviderOptions } from '../providers/groq-client.js';
 
 const ERRORS = {
+  PROVIDER_REDIRECT_REJECTED: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
   AUTH_ERROR: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
   NETWORK_ERROR: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
   PROVIDER_UNAVAILABLE: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],

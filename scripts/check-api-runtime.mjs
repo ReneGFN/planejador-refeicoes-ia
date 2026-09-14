@@ -10,6 +10,9 @@ import { checkPantryRuntime } from './check-pantry-runtime.mjs';
 import { checkPriorityRuntime } from './check-priority-runtime.mjs';
 import { checkDeletionRuntime } from './check-deletion-runtime.mjs';
 import { checkVideoRuntime } from './check-video-runtime.mjs';
+import { checkRedirectRuntime } from './check-redirect-runtime.mjs';
+
+await checkRedirectRuntime();
 
 // Números amplos SÓ para testes; não representam cotas gratuitas aprovadas.
 const common = { visitorDay: 1000, visitorMinute: 1000, networkDay: 1000, networkMinute: 1000,

@@ -62,7 +62,7 @@ async function setup(t) {
   return { DB, env, policy, state, handlers, request, send, session, cookie, visitor, rows, quota };
 }
 
-for (const code of ['AUTH_ERROR', 'NETWORK_ERROR', 'PROVIDER_UNAVAILABLE', 'INVALID_PROVIDER_RESPONSE', 'UNEXPECTED_MODEL']) {
+for (const code of ['AUTH_ERROR', 'NETWORK_ERROR', 'PROVIDER_UNAVAILABLE', 'INVALID_PROVIDER_RESPONSE', 'UNEXPECTED_MODEL', 'PROVIDER_REDIRECT_REJECTED']) {
   test(`apelido HTTP ${code}: preserva corpo genérico e código operacional`, async t => {
     const h = await setup(t), logs = [];
     t.mock.method(console, 'log', line => logs.push(JSON.parse(line)));

@@ -58,7 +58,13 @@ export function createVideoHandler({ fetchImpl, clock = Date.now, authorize = ac
       const result = await getSupportVideo({ title }, { ...visitor, requestKey: key, networkHash, networkDay: day },
         { DB: env.DB, policyJson: env.VIDEO_QUOTA_POLICY_JSON, apiKey: env.YOUTUBE_API_KEY,
           fetchImpl, clock, timeoutMs });
+      if (result.source === 'fallback') console.log(JSON.stringify({ event: 'video_operation', outcome: 'failed',
+        code: result.reason === 'VIDEO_REDIRECT_REJECTED' ? 'VIDEO_REDIRECT_REJECTED' : 'VIDEO_UNAVAILABLE' }));
       return json({ data: videoReply(title, result.result) });
-    } catch { return json({ data: videoReply(title) }); }
+    } catch (error) {
+      console.log(JSON.stringify({ event: 'video_operation', outcome: 'failed',
+        code: error?.code === 'VIDEO_REDIRECT_REJECTED' ? 'VIDEO_REDIRECT_REJECTED' : 'VIDEO_UNAVAILABLE' }));
+      return json({ data: videoReply(title) });
+    }
   };
 }

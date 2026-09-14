@@ -44,7 +44,7 @@ test('qualidade: salva bytes completos antes de entregar a resposta e mantém os
     assert.equal(request.response_format.json_schema.strict, true);
     assert.equal(request.response_format.json_schema.schema.properties.suggestions.minItems, undefined);
     assert.match(request.messages[0].content, /retorne suggestions vazia/u);
-    assert.equal(init.redirect, 'error');
+    assert.equal(init.redirect, 'manual');
     return new Response(body);
   }, async bytes => {
     assert.equal(bytes.toString(), body);

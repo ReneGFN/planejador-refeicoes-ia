@@ -22,7 +22,7 @@ test('YouTube: uma busca, somente nome do prato, filtros fixos e credencial fora
       videoEmbeddable: 'true', videoSyndicated: 'true', relevanceLanguage: 'pt', regionCode: 'BR',
       safeSearch: 'strict', order: 'relevance', maxResults: '5',
       fields: 'items(id(kind,videoId),snippet(title,channelId,channelTitle))', q: 'risoto de frango' });
-    assert.equal(init.method, 'GET'); assert.equal(init.redirect, 'error');
+    assert.equal(init.method, 'GET'); assert.equal(init.redirect, 'manual');
     assert.equal(init.body, undefined); assert.ok(init.signal instanceof AbortSignal);
     assert.deepEqual(init.headers, { Accept: 'application/json', 'X-Goog-Api-Key': 'YOUTUBE_API_KEY' });
     assert.equal(url.searchParams.has('key'), false);
@@ -57,7 +57,7 @@ test('YouTube: entrada e configuração inválidas impedem fetch', async () => {
 test('YouTube: erros HTTP são sanitizados e nunca viram ausência válida', async () => {
   for (const [status, code] of [[400, 'VIDEO_REQUEST_REJECTED'], [401, 'VIDEO_ACCESS_DENIED'],
     [403, 'VIDEO_ACCESS_DENIED'], [404, 'VIDEO_REQUEST_REJECTED'], [429, 'VIDEO_RATE_LIMITED'],
-    [500, 'VIDEO_UNAVAILABLE'], [503, 'VIDEO_UNAVAILABLE'], [302, 'VIDEO_UNAVAILABLE']]) {
+    [500, 'VIDEO_UNAVAILABLE'], [503, 'VIDEO_UNAVAILABLE'], [302, 'VIDEO_REDIRECT_REJECTED']]) {
     let calls = 0;
     await assert.rejects(search(input, options(async () => {
       calls++; return new Response('diagnóstico privado', { status });

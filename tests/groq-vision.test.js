@@ -18,7 +18,7 @@ test('visão Groq: envia foto intacta, JSON mode e devolve só dados validados/m
   const result = await analyze(file(), opts(async (url, init) => {
     calls++;
     assert.equal(url, 'https://api.groq.com/openai/v1/chat/completions');
-    assert.equal(init.redirect, 'error');
+    assert.equal(init.redirect, 'manual');
     const body = JSON.parse(init.body);
     assert.equal(body.model, VISION_MODEL);
     assert.equal(body.reasoning_effort, 'none');

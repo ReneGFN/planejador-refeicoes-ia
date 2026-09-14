@@ -26,6 +26,7 @@ export function technicalCategory(error, phase) {
     // Correspondência exata, nunca copiar ou registrar mensagem do transporte.
     else if (error?.cause?.message === 'unexpected redirect'
       || error?.message === 'Fetch API cannot follow redirect when redirect: "error" is set.') category = 'REDIRECT_REJECTED';
+    else if (error?.message === 'Invalid redirect value, must be one of "follow" or "manual" ("error" won\'t be implemented since it does not make sense at the edge; use "manual" and check the response status code).') category = 'UNSUPPORTED_REDIRECT_MODE';
     else if (phase === 'request') category = 'REQUEST_BUILD';
     else if (phase === 'response_body') category = 'BODY_READ';
   } catch { /* Getters hostis não podem quebrar o diagnóstico. */ }
@@ -90,6 +91,14 @@ async function rejectedRequestCode(response, signal) {
   return 'PROVIDER_REJECTED_REQUEST';
 }
 
+export function groqRequestInit(apiKey, signal, body) {
+  return {
+    method: 'POST', redirect: 'manual', signal,
+    headers: { Authorization: `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 // Sem repetição, redirecionamento ou exposição do envelope bruto ao chamador.
 export async function completeWithGroq(body, validateContent, { apiKey, fetchImpl = fetch, timeoutMs = 30000 } = {}) {
   validateProviderOptions({ apiKey, timeoutMs });
@@ -98,14 +107,14 @@ export async function completeWithGroq(body, validateContent, { apiKey, fetchImp
   const started = Date.now();
   let phase = 'request';
   try {
-    const init = {
-      method: 'POST', redirect: 'error', signal: controller.signal,
-      headers: { Authorization: `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    };
+    const init = groqRequestInit(apiKey, controller.signal, body);
     phase = 'fetch';
     const response = await fetchImpl(ENDPOINT, init);
     phase = 'response_body';
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => {});
+      throw new ProviderError('PROVIDER_REDIRECT_REJECTED');
+    }
     if (!response.ok) {
       if (response.status === 400) throw new ProviderError(await rejectedRequestCode(response, controller.signal));
       await response.body?.cancel();
