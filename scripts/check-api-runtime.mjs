@@ -153,7 +153,7 @@ const ready = { mode: 'ready', meal: 'almoço', people: 1 };
 let checks = 0;
 try {
   const db = await mf.getD1Database('DB', 'api-test');
-  for (const file of ['0001_initial.sql', '0002_usage_reservations.sql', '0003_plan_history.sql', '0004_meal_logs.sql', '0005_pantry.sql', '0006_history_deletion.sql', '0007_video_cache_quota.sql']) {
+  for (const file of ['0001_initial.sql', '0002_usage_reservations.sql', '0003_plan_history.sql', '0004_meal_logs.sql', '0005_pantry.sql', '0006_history_deletion.sql', '0007_video_cache_quota.sql', '0008_meal_log_ratings.sql']) {
     const sql = (await readFile(new URL('../migrations/' + file, import.meta.url), 'utf8')).replace(/--[^\n]*/gu, '');
     // Cada CREATE TRIGGER é mantido inteiro, incluindo seus SELECTs e END.
     for (const statement of sql.split(/\n(?=CREATE |PRAGMA |ALTER )/u).map(s => s.trim()).filter(Boolean)) await db.prepare(statement).run();

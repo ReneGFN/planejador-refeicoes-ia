@@ -156,7 +156,8 @@ export function createApiHandlers({ fetchImpl } = {}) {
       checkConfig(env, 'ingress'); await pruneUsage(env);
       const ingress = await reserveUsage(request, env, 'ingress'); await finishUsage(env, ingress.id, true);
       const visitor = await requireVisitorSession(request, env);
-      return jsonResponse({ data: request.method === 'GET' ? await listPlans(env, visitor) : await deletePlan(env, visitor, params.id) });
+      return jsonResponse({ data: request.method === 'GET'
+        ? await listPlans(env, visitor, { includeMealLogs: env?.DIARY_ENABLED === 'true' }) : await deletePlan(env, visitor, params.id) });
     } catch (error) { return failure(error); }
   }
   async function history({ request, env }) {

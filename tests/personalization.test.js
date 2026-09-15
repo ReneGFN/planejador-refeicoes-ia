@@ -185,6 +185,18 @@ test('histórico: compare com permissão ativa não consulta nem monta contexto;
   assert.equal(direct.messages[0].content, generationSystem('compare'));
 });
 
+test('histórico: nota nunca chega ao provedor em cook, ready ou compare', async t => {
+  const h = await setup(t); const id = h.seed();
+  h.DB.sqlite.prepare('UPDATE meal_logs SET rating=? WHERE id=?').run(5, id);
+  await writePreferences(h.env, h.visitor, preference(true));
+  for (const input of [cook, ready, { ...cook, mode: 'compare', hourly_rate_brl: 0 }]) {
+    assert.equal((await h.generate({ body: input })).status, 200);
+    const sent = JSON.stringify(h.state.sent.at(-1));
+    assert.equal(sent.includes('"rating"'), false, input.mode);
+    assert.equal(sent.includes('"meal_rating"'), false, input.mode);
+  }
+});
+
 test('histórico: ausência, permissão inválida e falha de leitura resultam em envio sem contexto', async t => {
   const h = await setup(t); h.seed();
   for (const data of [preference('true'), { ...preference(true), version: 2 }]) {

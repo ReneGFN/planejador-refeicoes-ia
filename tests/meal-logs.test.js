@@ -6,7 +6,7 @@ import { createApiHandlers } from '../src/http/api.js';
 import { resolveVisitorSession } from '../src/security/session.js';
 import { savePlan } from '../src/history/plans.js';
 import { getMeal, listMeals, mutateMeal } from '../src/history/meal-logs.js';
-import { validateMealCreate, validateMealUpdate, validateMealQuery, mealDate } from '../src/contracts/meal-log.js';
+import { validateMealCreate, validateMealUpdate, validateMealRatingUpdate, validateMealQuery, mealDate } from '../src/contracts/meal-log.js';
 import { readPreferences, writePreferences } from '../src/history/preferences.js';
 import { selectHistoryContext } from '../src/history/context.js';
 import * as collectionRoute from '../functions/api/meal-logs.js';
@@ -203,6 +203,43 @@ test('diário edição: substitui campos editáveis, preserva origem/instantâne
   value = await getMeal(h.env, h.visitor, id);
   assert.equal(value.description, 'Correção mais recente'); assert.equal(Object.hasOwn(value, 'servings_consumed'), false);
 });
+test('diário nota: inteiro de 1 a 5, remoção, idempotência e recibo sem conteúdo alimentar', async t => {
+  const h = await setup(t), id = await h.create(), key = crypto.randomUUID();
+  for (const value of [0, 6, 2.5]) {
+    assert.throws(() => h.DB.sqlite.prepare('UPDATE meal_logs SET rating=? WHERE id=?').run(value, id));
+  }
+  h.DB.sqlite.prepare('UPDATE meal_logs SET rating=NULL WHERE id=?').run(id);
+  assert.deepEqual(validateMealRatingUpdate({ version: 1, rating: 5 }), { version: 1, rating: 5 });
+  assert.deepEqual(validateMealRatingUpdate({ version: 1, rating: null }), { version: 1, rating: null });
+  for (const value of [undefined, 0, 6, -1, 2.5, '5', false]) {
+    const body = value === undefined ? { version: 1 } : { version: 1, rating: value };
+    assert.throws(() => validateMealRatingUpdate(body));
+    assert.equal((await h.send({ method: 'PUT', id, body })).status, 400);
+  }
+  assert.equal((await h.send({ method: 'PUT', id, key, body: { version: 1, rating: 5 } })).status, 200);
+  assert.equal((await getMeal(h.env, h.visitor, id)).rating, 5);
+  assert.equal((await h.send({ method: 'PUT', id, key, body: { version: 1, rating: 1 } })).status, 409);
+  assert.equal((await getMeal(h.env, h.visitor, id)).rating, 5);
+  assert.equal((await h.send({ method: 'PUT', id, body: { version: 1, rating: null } })).status, 200);
+  assert.equal((await getMeal(h.env, h.visitor, id)).rating, null);
+  const receipt = h.DB.sqlite.prepare("SELECT * FROM meal_log_mutations WHERE operation='update' ORDER BY rowid LIMIT 1").get();
+  assert.equal(JSON.stringify(receipt).includes('rating'), false);
+});
+test('diário nota: dono isolado e projeção de planos não correlaciona listas no cliente', async t => {
+  const h = await setup(t), b = await h.session(), plan = await h.plan(), id = await h.create(h.selected(plan));
+  assert.equal((await h.send({ method: 'PUT', id, body: { version: 1, rating: 4 } })).status, 200);
+  const foreign = await h.send({ method: 'PUT', id, cookie: b.cookie, body: { version: 1, rating: 1 } });
+  assert.equal(foreign.status, 400); assert.equal((await getMeal(h.env, h.visitor, id)).rating, 4);
+  const headers = { Origin: 'https://diary.test', Cookie: h.cookie, 'CF-Connecting-IP': '192.0.2.1' };
+  const listed = await h.handlers.plans({ env: h.env, request: new Request('https://diary.test/api/plans', { headers }) });
+  const data = (await listed.json()).data;
+  assert.deepEqual(data.find(item => item.id === plan).meal_logs, [{ id, side: 'cook', suggestion_index: 0, rating: 4 }]);
+  const other = await h.handlers.plans({ env: h.env, request: new Request('https://diary.test/api/plans', { headers: { ...headers, Cookie: b.cookie } }) });
+  assert.deepEqual((await other.json()).data, []);
+  h.env.DIARY_ENABLED = 'false';
+  const disabled = await h.handlers.plans({ env: h.env, request: new Request('https://diary.test/api/plans', { headers }) });
+  assert.equal(Object.hasOwn((await disabled.json()).data[0], 'meal_logs'), false);
+});
 test('diário exclusão: preserva recibos, não ressuscita registro por POST ou PUT repetido e não zera cotas', async t => {
   const h = await setup(t), createKey = crypto.randomUUID(), id = await h.create(manual(), { key: createKey });
   const editKey = crypto.randomUUID(), deleteKey = crypto.randomUUID();
@@ -313,6 +350,7 @@ test('diário função: escrita aguardada, recibo técnico sem conteúdo, regist
   assert.equal(saved, true); assert.equal(result.data.applied, true);
   const row = h.DB.sqlite.prepare('SELECT * FROM meal_log_mutations').get();
   assert.equal(JSON.stringify(row).includes(manual().description), false);
+  assert.equal(JSON.stringify(row).includes('rating'), false);
   assert.equal(row.expires_at, h.visitor.expiresAt);
   await assert.rejects(mutateMeal(h.env, h.visitor, 'update', crypto.randomUUID(), edited(), crypto.randomUUID()));
 });

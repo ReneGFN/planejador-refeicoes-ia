@@ -121,6 +121,26 @@ test('preview: cartão semanal deriva apenas do diário e abre o gerador de imag
   for (const value of ['foodEmoji', '🍝', '🍲', '🥗', '🍽️', 'categorias aproximadas']) assert.ok(source.includes(value));
 });
 
+test('preview: avaliação de refeição usa pratos, só aparece para consumo vinculado e confirma no servidor', () => {
+  const { MealRating } = loadComponent('components/ui/meal-rating.tsx');
+  const noRating = renderToStaticMarkup(React.createElement(MealRating, { value: null, onRate() {}, onRemove() {} }));
+  const rated = renderToStaticMarkup(React.createElement(MealRating, { value: 1, onRate() {}, onRemove() {} }));
+  assert.ok(noRating.includes('Ainda sem avaliação'));
+  assert.ok(!noRating.includes('Remover avaliação'));
+  assert.ok(rated.includes('1 de 5 pratos'));
+  assert.ok(rated.includes('Remover avaliação'));
+  assert.equal((rated.match(/aria-pressed=/g) ?? []).length, 5);
+  const component = readFileSync(resolve(root, 'components/ui/meal-rating.tsx'), 'utf8');
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  const client = readFileSync(resolve(root, 'frontend/api-client.ts'), 'utf8');
+  assert.ok(component.includes('Utensils') && component.includes('motion.button'));
+  assert.ok(component.includes('disabled={pending}'));
+  assert.ok(screens.includes('plan.meal_logs ?? []'));
+  assert.ok(screens.includes('if (ratingPending) return'));
+  assert.ok(screens.indexOf('await api.meals.rate') < screens.indexOf('setPlans(previous'));
+  assert.ok(client.includes('rating: number | null'));
+});
+
 test('preview: menu mantém todos os nomes visíveis abaixo dos ícones', () => {
   const { ExpandableTabs } = loadComponent('components/ui/expandable-tabs.tsx');
   const { PreviewIcons } = loadComponent('components/ui/preview-icons.tsx');

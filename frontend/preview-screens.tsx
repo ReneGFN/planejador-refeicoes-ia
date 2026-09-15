@@ -10,6 +10,7 @@ import { api, ApiError, type MealRecord, type PantryRecord } from "./api-client"
 import { formatIngredient } from "./ingredient-format";
 import { Info, Sparkles } from "lucide-react";
 import { WeeklyShareCard } from "@/components/ui/weekly-share-card";
+import { MealRating } from "@/components/ui/meal-rating";
 
 type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao";
 const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao"];
@@ -23,7 +24,8 @@ const startWith = (meal: string) => {
 };
 interface Entry { id: string; title: string; note: string; eatenAt?: string; remote?: boolean }
 interface Suggestion { title: string; description?: string; servings?: number; total_minutes?: number; ingredients?: { quantity: string | number; unit: string; name: string }[]; steps?: string[] }
-interface Plan { id: string; suggestion: Suggestion; planId?: string; mode?: "cook" | "ready"; suggestionIndex?: number }
+interface PlanMeal { id: string; rating: number | null }
+interface Plan { id: string; suggestion: Suggestion; planId?: string; mode?: "cook" | "ready"; suggestionIndex?: number; mealLogs?: PlanMeal[] }
 type SuggestionMeta = Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number };
 
 function Empty({ icon, children }: { icon: keyof typeof I; children: ReactNode }) {
@@ -112,6 +114,7 @@ export function PreviewScreens() {
   const [remove, setRemove] = useState<{ kind: "diario" | "compras" | "planos"; id: string; title: string } | null>(null);
   const [message, setMessage] = useState("");
   const [connected, setConnected] = useState(false);
+  const [ratingPending, setRatingPending] = useState<string | null>(null);
   const screen = useRef<HTMLDivElement>(null);
   const initialRoute = useRef(true);
 
@@ -132,7 +135,14 @@ export function PreviewScreens() {
       if (mealResult.status === "fulfilled") { setDiary(mealResult.value.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setConnected(true); }
       if (pantryResult.status === "fulfilled") setPantry(pantryResult.value.map(item => ({ id: item.id, name: item.name, quantity: item.quantity?.toString() || "", unit: item.unit || "", expiry: item.expires_at || "", revision: item.revision, remote: true })));
       if (preferencesResult.status === "fulfilled") setPersonalization({ history: preferencesResult.value.use_history, pantry: Boolean(preferencesResult.value.use_pantry) });
-      if (plansResult.status === "fulfilled") setPlans(plansResult.value.flatMap(plan => plan.data.suggestions.map((suggestion, index) => ({ id: `${plan.id}:${index}`, planId: plan.id, mode: plan.data.mode, suggestionIndex: index, suggestion: suggestion as unknown as Suggestion }))));
+      if (plansResult.status === "fulfilled") setPlans(plansResult.value.flatMap(plan => plan.data.suggestions.map((suggestion, index) => ({
+        id: `${plan.id}:${index}`,
+        planId: plan.id,
+        mode: plan.data.mode,
+        suggestionIndex: index,
+        suggestion: suggestion as unknown as Suggestion,
+        mealLogs: (plan.meal_logs ?? []).filter(meal => meal.side === plan.data.mode && meal.suggestion_index === index).map(meal => ({ id: meal.id, rating: meal.rating })),
+      }))));
     });
     const local = (e: Event) => setMessage((e as CustomEvent<string>).detail);
     document.addEventListener("refeicao:local-message", local);
@@ -169,6 +179,17 @@ export function PreviewScreens() {
     else { const plan = plans.find(x => x.id === remove.id); if (plan?.planId) try { await api.plans.remove(plan.planId); setPlans(prev => prev.filter(x => x.planId !== plan.planId)); } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível excluir o plano."); return; } else setPlans(prev => prev.filter(x => x.id !== remove.id)); }
     setRemove(null); setMessage("Item removido da sessão.");
   }
+  async function saveRating(mealId: string, rating: number | null) {
+    if (ratingPending) return;
+    setRatingPending(mealId);
+    try {
+      await api.meals.rate(mealId, rating);
+      setPlans(previous => previous.map(plan => ({ ...plan, mealLogs: plan.mealLogs?.map(meal => meal.id === mealId ? { ...meal, rating } : meal) })));
+      setMessage(rating === null ? "Avaliação removida." : "Avaliação salva.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível salvar a avaliação. A nota anterior foi mantida.");
+    } finally { setRatingPending(null); }
+  }
   const entries = route === "diario" ? diary : shopping;
   return <>
     <div ref={screen} key={route} id={route} className={`preview-screen ${route === "inicio" ? "screen-enter" : "screen-enter-up"}`}>
@@ -200,7 +221,7 @@ export function PreviewScreens() {
       {route === "planos" && <><Back title="Planos anteriores" /><DataNotice connected={connected} />
         {!plans.length && <><Empty icon="history">Nenhum plano salvo ainda</Empty><QuickSuggestions label="Ideias para começar" options={["Jantar rápido", "Marmita da semana", "Refeição econômica", "Almoço em família"]} onSelect={startWith} /><button className="button primary pressable glow-action" onClick={openPlanner}><I.plus />Começar um pedido</button></>}
         {plans.map(plan => <SwipeAction key={plan.id} label="Excluir plano" onAction={() => setRemove({kind:"planos",id:plan.id,title:plan.suggestion.title})}>
-          <details className="saved-plan"><summary><I.history /><span>{plan.suggestion.title}</span><I.chevDown /></summary><div className="saved-plan-body"><p>{plan.suggestion.description}</p>{plan.suggestion.steps?.map((step,i)=><p key={i}>{step}</p>)}</div></details>
+          <details className="saved-plan"><summary><I.history /><span>{plan.suggestion.title}</span><I.chevDown /></summary><div className="saved-plan-body"><p>{plan.suggestion.description}</p>{plan.suggestion.steps?.map((step,i)=><p key={i}>{step}</p>)}{plan.mealLogs?.map((meal, index) => <MealRating key={meal.id} value={meal.rating} pending={ratingPending === meal.id} onRate={rating => saveRating(meal.id, rating)} onRemove={() => saveRating(meal.id, null)} className={index ? "meal-rating-follow-up" : undefined} />)}</div></details>
         </SwipeAction>)}
       </>}
       {route === "foto" && <PhotoScreen />}

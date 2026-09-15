@@ -37,6 +37,10 @@ export async function checkDiaryRuntime({ db, send, session, scenario, calls, po
     const cookie = await session(), id = await create(cookie);
     const meal = await read(cookie, id); assert.equal(meal.eaten_at, '2026-01-10T22:00:00.000Z');
     assert.equal(meal.plan_id, null); assert.equal(Object.hasOwn(meal, 'servings_consumed'), false);
+    assert.equal((await diary(cookie, { method: 'PUT', id, body: { version: 1, rating: 4 } })).status, 200);
+    assert.equal((await read(cookie, id)).rating, 4);
+    assert.equal((await diary(cookie, { method: 'PUT', id, body: { version: 1, rating: null } })).status, 200);
+    assert.equal((await read(cookie, id)).rating, null);
     assert.equal((await diary(cookie, { method: 'PUT', id, body: edit })).status, 200);
     assert.equal((await read(cookie, id)).description, edit.description);
     assert.equal((await diary(cookie, { method: 'DELETE', id, body: { version: 1 } })).status, 200);

@@ -59,6 +59,14 @@ export function validateMealUpdate(raw, options) {
   object(raw, ['version', 'description', 'eaten_at', 'servings_consumed']);
   return { version: 1, description: description(raw.description), eaten_at: mealDate(raw.eaten_at, options), ...servings(raw) };
 }
+export function validateMealRatingUpdate(raw) {
+  object(raw, ['version', 'rating']);
+  if (!Object.hasOwn(raw, 'rating')) invalid('rating', 'informe uma nota de 1 a 5 ou null para remover');
+  if (raw.rating !== null && (!Number.isInteger(raw.rating) || raw.rating < 1 || raw.rating > 5)) {
+    invalid('rating', 'informe inteiro de 1 a 5 ou null para remover');
+  }
+  return { version: 1, rating: raw.rating };
+}
 export function validateMealDelete(raw) { object(raw, ['version']); return { version: 1 }; }
 
 export function validateMealQuery(searchParams, options) {

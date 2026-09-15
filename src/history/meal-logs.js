@@ -1,11 +1,16 @@
 import { ContractError } from '../contracts/generation.js';
-import { mealId, mealDate, mealSnapshot, validateMealCreate, validateMealUpdate, validateMealDelete, validateMealQuery } from '../contracts/meal-log.js';
+import { mealId, mealDate, mealSnapshot, validateMealCreate, validateMealUpdate, validateMealRatingUpdate, validateMealDelete, validateMealQuery } from '../contracts/meal-log.js';
 import { restorePlan } from './plans.js';
 import { usageReservationId } from '../security/quota.js';
 import { captureHistoryRevision, historyGuard } from './revision.js';
 
 const unavailable = () => new Error('O diário está temporariamente indisponível.');
 const missing = () => new ContractError('meal_log.id', 'registro ou sugestão indisponível para esta sessão');
+const rating = value => {
+  if (value === null || value === undefined) return null;
+  if (!Number.isInteger(value) || value < 1 || value > 5) throw unavailable();
+  return value;
+};
 function identity(visitor, now) {
   if (!visitor || mealId(visitor.visitorId) !== visitor.visitorId || !(Date.parse(visitor.expiresAt) > now)) throw unavailable();
 }
@@ -21,13 +26,13 @@ export function restoreMeal(row, now) {
     if (raw.source === 'plan_suggestion' && (!['cook', 'ready'].includes(raw.side)
         || selection.snapshot.side !== raw.side || !Number.isInteger(raw.suggestion_index)
         || raw.suggestion_index < 0 || raw.suggestion_index > 2)) throw unavailable();
-    return { id: mealId(row.id), ...edited, source: raw.source, plan_id: row.plan_id ? mealId(row.plan_id) : null,
+    return { id: mealId(row.id), ...edited, source: raw.source, plan_id: row.plan_id ? mealId(row.plan_id) : null, rating: rating(row.rating),
       ...selection, created_at: mealDate(row.created_at, { now }), updated_at: mealDate(row.updated_at, { now }), expires_at: row.expires_at };
   } catch { throw unavailable(); }
 }
 async function rowById(env, visitor, id, now) {
   // O vínculo também é filtrado pelo dono: nunca devolver ID de plano alheio, mesmo em linha inconsistente.
-  return env.DB.prepare(`SELECT m.id, p.id AS plan_id, m.eaten_at, m.data_json, m.created_at, m.updated_at, m.expires_at
+  return env.DB.prepare(`SELECT m.id, p.id AS plan_id, m.eaten_at, m.data_json, m.rating, m.created_at, m.updated_at, m.expires_at
     FROM meal_logs m LEFT JOIN plans p ON p.id = m.plan_id AND p.visitor_id = ?1
     WHERE m.visitor_id = ?1 AND m.id = ?2 AND m.expires_at > ?3 LIMIT 1`)
     .bind(visitor.visitorId, id, new Date(now).toISOString()).first();
@@ -41,7 +46,7 @@ export async function getMeal(env, visitor, id, { now = Date.now() } = {}) {
 export async function listMeals(env, visitor, query = {}, { now = Date.now() } = {}) {
   identity(visitor, now);
   query = validateMealQuery(new URLSearchParams(query), { now });
-  const result = await env.DB.prepare(`SELECT m.id, p.id AS plan_id, m.eaten_at, m.data_json, m.created_at, m.updated_at, m.expires_at
+  const result = await env.DB.prepare(`SELECT m.id, p.id AS plan_id, m.eaten_at, m.data_json, m.rating, m.created_at, m.updated_at, m.expires_at
     FROM meal_logs m LEFT JOIN plans p ON p.id = m.plan_id AND p.visitor_id = ?1
     WHERE m.visitor_id = ?1 AND m.expires_at > ?2
       AND (?3 IS NULL OR m.eaten_at < ?3 OR (m.eaten_at = ?3 AND m.id > ?4))
@@ -62,8 +67,9 @@ const duplicate = row => ({ duplicate: true, receipt: { operation: row.operation
 export async function mutateMeal(env, visitor, operation, id, raw, key, { now = Date.now() } = {}) {
   identity(visitor, now); mealId(key);
   const revision = await captureHistoryRevision(env, visitor);
+  const ratingUpdate = operation === 'update' && !!raw && typeof raw === 'object' && Object.hasOwn(raw, 'rating');
   const input = operation === 'create' ? validateMealCreate(raw, { now })
-    : operation === 'update' ? validateMealUpdate(raw, { now })
+    : operation === 'update' ? (ratingUpdate ? validateMealRatingUpdate(raw) : validateMealUpdate(raw, { now }))
       : operation === 'delete' ? validateMealDelete(raw) : null;
   if (!input) throw missing();
   const target = operation === 'create' ? crypto.randomUUID() : mealId(id);
@@ -110,12 +116,19 @@ export async function mutateMeal(env, visitor, operation, id, raw, key, { now = 
       SELECT ?4, ?1, ?5, ?6, ?7, ?8, ?8, ?9 WHERE ${won}`)
       .bind(visitor.visitorId, actionKey, attempt, target, planId, input.eaten_at, JSON.stringify(document), timestamp, visitor.expiresAt);
   } else if (operation === 'update') {
-    // Substituição dos campos editáveis, preservando origem/instantâneo. Ausência de porções continua desconhecida.
-    mutation = env.DB.prepare(`UPDATE meal_logs SET eaten_at = ?5, updated_at = ?6,
-      data_json = json_patch(json_remove(data_json, '$.servings_consumed'), ?7)
-      WHERE visitor_id = ?1 AND id = ?4 AND ${won}`)
-      .bind(visitor.visitorId, actionKey, attempt, target, input.eaten_at, timestamp,
-        JSON.stringify({ description: input.description, ...(Object.hasOwn(input, 'servings_consumed') ? { servings_consumed: input.servings_consumed } : {}) }));
+    if (ratingUpdate) {
+      // Nota é metadado do registro, nunca entra no instantâneo alimentar em data_json.
+      mutation = env.DB.prepare(`UPDATE meal_logs SET rating = ?5, updated_at = ?6
+        WHERE visitor_id = ?1 AND id = ?4 AND ${won}`)
+        .bind(visitor.visitorId, actionKey, attempt, target, input.rating, timestamp);
+    } else {
+      // Substituição dos campos editáveis, preservando origem/instantâneo. Ausência de porções continua desconhecida.
+      mutation = env.DB.prepare(`UPDATE meal_logs SET eaten_at = ?5, updated_at = ?6,
+        data_json = json_patch(json_remove(data_json, '$.servings_consumed'), ?7)
+        WHERE visitor_id = ?1 AND id = ?4 AND ${won}`)
+        .bind(visitor.visitorId, actionKey, attempt, target, input.eaten_at, timestamp,
+          JSON.stringify({ description: input.description, ...(Object.hasOwn(input, 'servings_consumed') ? { servings_consumed: input.servings_consumed } : {}) }));
+    }
   } else {
     // Só conteúdo de produto; o recibo permanece para que reenvio não ressuscite uma refeição apagada.
     mutation = env.DB.prepare(`DELETE FROM meal_logs WHERE visitor_id = ?1 AND id = ?4 AND ${won}`)

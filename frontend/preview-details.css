@@ -150,6 +150,18 @@
 .saved-plan summary::-webkit-details-marker { display: none; }
 .saved-plan[open] summary > svg:last-child { transform: rotate(180deg); }
 .saved-plan-body { padding: 0 16px 16px; font-size: 14px; line-height: 1.5; animation: previewIn .28s var(--preview-ease); }
+.meal-rating { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--color-divider); }
+.meal-rating-follow-up { margin-top: 14px; }
+.meal-rating-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--color-muted); font-size: 12px; }
+.meal-rating-heading strong { color: var(--color-ink); font-size: 12px; }
+.meal-rating-controls { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.meal-rating-choice { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; color: var(--color-muted); background: transparent; cursor: pointer; }
+.meal-rating-choice svg { width: 19px; height: 19px; stroke-width: 1.8; }
+.meal-rating-choice.is-highlighted { color: var(--color-action); }
+.meal-rating-choice.is-selected { background: color-mix(in srgb, var(--color-action) 12%, transparent); }
+.meal-rating-choice:focus-visible, .meal-rating-remove:focus-visible { outline: 2px solid var(--color-action); outline-offset: 2px; }
+.meal-rating-remove { margin-left: auto; padding: 5px 0; border: 0; background: transparent; color: var(--color-muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.meal-rating-choice:disabled, .meal-rating-remove:disabled { cursor: wait; opacity: .55; }
 .preview-result { background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: 18px; padding: 20px; margin-top: 16px; line-height: 1.5; }
 .preview-result .result-meta { justify-content: flex-start; margin: 0 0 14px; }
 .recipe-steps p { white-space: pre-line; }

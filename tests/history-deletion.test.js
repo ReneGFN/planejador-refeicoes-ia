@@ -87,7 +87,8 @@ test('exclusão: confirmação explícita, corpo fechado e habilitação somente
 });
 
 test('exclusão pura: remove quatro produtos, preserva todos os recibos/cotas e outro dono byte a byte', async t => {
-  const h = await setup(t); await h.seed(); await h.seed(h.b.visitor);
+  const h = await setup(t); const own = await h.seed(); await h.seed(h.b.visitor);
+  h.DB.sqlite.prepare('UPDATE meal_logs SET rating=? WHERE id=?').run(5, own.meal);
   await h.generate();
   const before = Object.fromEntries(technical.map(table => [table, h.rows(table)]));
   const foreign = Object.fromEntries(product.map(table => [table, h.rows(table).filter(row => row.visitor_id === h.b.visitor.visitorId)]));
@@ -98,6 +99,7 @@ test('exclusão pura: remove quatro produtos, preserva todos os recibos/cotas e 
     assert.deepEqual(h.rows(table), foreign[table]);
   }
   for (const table of technical) assert.deepEqual(h.rows(table), before[table]);
+  assert.equal(JSON.stringify(h.rows('meal_log_mutations')).includes('rating'), false);
   assert.equal(h.count('visitors'), 2);
   assert.equal(await captureHistoryRevision(h.env, h.a.visitor), 1);
   const expected = sessions.map(row => row.id === h.a.visitor.visitorId ? { ...row, history_revision: 1 } : row);

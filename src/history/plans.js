@@ -6,6 +6,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const HASH = /^[a-f0-9]{64}$/u;
 
 function unavailable() { return new Error('Não foi possível acessar o plano salvo.'); }
+function mealLink(row) {
+  try {
+    const raw = JSON.parse(row.data_json);
+    if (!UUID.test(row.id) || !UUID.test(row.plan_id) || raw.source !== 'plan_suggestion'
+        || !['cook', 'ready'].includes(raw.side) || !Number.isInteger(raw.suggestion_index)
+        || raw.suggestion_index < 0 || raw.suggestion_index >= 3
+        || (row.rating !== null && (!Number.isInteger(row.rating) || row.rating < 1 || row.rating > 5))) throw unavailable();
+    return { id: row.id, side: raw.side, suggestion_index: raw.suggestion_index, rating: row.rating };
+  } catch { throw unavailable(); }
+}
 function identity(visitor, generationKey) {
   // visitor é sempre obtido pela sessão no chamador HTTP, nunca pelo corpo.
   if (!UUID.test(visitor?.visitorId ?? '') || !HASH.test(generationKey ?? '')) throw unavailable();
@@ -58,7 +68,7 @@ export async function findPlan(env, visitor, generationKey, { now = Date.now() }
   } catch { throw unavailable(); }
 }
 
-export async function listPlans(env, visitor, { now = Date.now(), limit = 30 } = {}) {
+export async function listPlans(env, visitor, { now = Date.now(), limit = 30, includeMealLogs = false } = {}) {
   identity(visitor, 'a'.repeat(64));
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw unavailable();
   try {
@@ -66,7 +76,20 @@ export async function listPlans(env, visitor, { now = Date.now(), limit = 30 } =
       WHERE visitor_id = ?1 AND expires_at > ?2 ORDER BY created_at DESC, id ASC LIMIT ?3`)
       .bind(visitor.visitorId, new Date(now).toISOString(), limit).all();
     if (!result.success || !Array.isArray(result.results)) throw unavailable();
-    return result.results.map(restorePlan);
+    const plans = result.results.map(restorePlan);
+    if (!includeMealLogs || !plans.length) return plans;
+    const linked = await env.DB.prepare(`SELECT m.id, m.plan_id, m.data_json, m.rating
+      FROM meal_logs AS m JOIN plans AS p ON p.id = m.plan_id AND p.visitor_id = ?1
+      WHERE m.visitor_id = ?1 AND m.expires_at > ?2 AND p.expires_at > ?2
+      ORDER BY m.eaten_at DESC, m.id ASC`).bind(visitor.visitorId, new Date(now).toISOString()).all();
+    if (!linked.success || !Array.isArray(linked.results)) throw unavailable();
+    const byPlan = new Map();
+    for (const row of linked.results) {
+      const entry = mealLink(row);
+      const entries = byPlan.get(row.plan_id) ?? [];
+      entries.push(entry); byPlan.set(row.plan_id, entries);
+    }
+    return plans.map(plan => ({ ...plan, meal_logs: byPlan.get(plan.id) ?? [] }));
   } catch { throw unavailable(); }
 }
 

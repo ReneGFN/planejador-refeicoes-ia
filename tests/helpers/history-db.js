@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 export function historyDb() {
   const sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0001_initial.sql', '0002_usage_reservations.sql', '0003_plan_history.sql', '0004_meal_logs.sql', '0005_pantry.sql', '0006_history_deletion.sql']) {
+  for (const file of ['0001_initial.sql', '0002_usage_reservations.sql', '0003_plan_history.sql', '0004_meal_logs.sql', '0005_pantry.sql', '0006_history_deletion.sql', '0008_meal_log_ratings.sql']) {
     sqlite.exec(readFileSync(new URL('../../migrations/' + file, import.meta.url), 'utf8'));
   }
   const trace = [];
