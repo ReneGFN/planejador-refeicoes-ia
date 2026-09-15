@@ -15,6 +15,14 @@ import { MealRating } from "@/components/ui/meal-rating";
 type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao";
 const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao"];
 const currentRoute = () => routes.includes(location.hash.slice(1) as Route) ? location.hash.slice(1) as Route : "inicio";
+const LOCAL_PANTRY_KEY = "refeicao-facil:local-pantry";
+const readLocalPantry = (): PantryEntry[] => {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const value = JSON.parse(localStorage.getItem(LOCAL_PANTRY_KEY) || "[]");
+    return Array.isArray(value) ? value.filter(item => item && typeof item.id === "string" && typeof item.name === "string") : [];
+  } catch { return []; }
+};
 const go = (route: Route) => { location.hash = route; };
 const openPlanner = () => document.dispatchEvent(new CustomEvent("refeicao:open-planner"));
 const startWith = (meal: string) => {
@@ -105,7 +113,11 @@ export function PreviewScreens() {
   const [route, setRoute] = useState<Route>(currentRoute);
   const [diary, setDiary] = useState<Entry[]>([]);
   const [shopping, setShopping] = useState<Entry[]>([]);
-  const [pantry, setPantry] = useState<PantryEntry[]>([]);
+  const [pantry, setPantryState] = useState<PantryEntry[]>(readLocalPantry);
+  const setPantry = (items: PantryEntry[]) => {
+    setPantryState(items);
+    try { localStorage.setItem(LOCAL_PANTRY_KEY, JSON.stringify(items)); } catch { /* Persistência local é opcional. */ }
+  };
   const [personalization, setPersonalization] = useState({ history: false, pantry: false });
   const [plans, setPlans] = useState<Plan[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -149,11 +161,11 @@ export function PreviewScreens() {
     return () => { active = false; document.removeEventListener("refeicao:local-message", local); };
   }, []);
   useEffect(() => {
-    const items = personalization.pantry
-      ? [...new Set(pantry.map(item => item.name.trim()).filter(Boolean))]
-      : [];
+    // Mostrar nomes no formulário é uma sugestão local. Só o consentimento explícito
+    // permite que o servidor envie a despensa completa automaticamente ao provedor de IA.
+    const items = [...new Set(pantry.map(item => item.name.trim()).filter(Boolean))];
     document.dispatchEvent(new CustomEvent("refeicao:pantry-suggestions", { detail: { items } }));
-  }, [pantry, personalization.pantry]);
+  }, [pantry]);
   useEffect(() => {
     if (initialRoute.current) { initialRoute.current = false; return; }
     window.scrollTo({ top: 0, behavior: "instant" });

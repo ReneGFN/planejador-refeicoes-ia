@@ -169,6 +169,24 @@ test('preview: sugestões rápidas cobrem planejador, compras, despensa, planos,
   assert.ok(css.includes('--glow-green'));
 });
 
+test('planejador: texto natural, até 20 pessoas, ingredientes opcionais e orçamento incremental', () => {
+  const page = readFileSync(resolve(root, 'public/index.html'), 'utf8');
+  const app = readFileSync(resolve(root, 'public/app.js'), 'utf8');
+  assert.ok(page.includes('O que você quer comer hoje?'));
+  assert.match(page, /id="people" class="number-stepper-input" type="number" min="1" max="20" step="1" value="2"/);
+  assert.ok(page.includes('id="people-decrement"'));
+  assert.ok(page.includes('id="people-increment"'));
+  assert.ok(page.includes('Ingredientes (opcional)'));
+  assert.ok(page.includes('Deixe em branco para receber uma sugestão pelo tempo e orçamento.'));
+  assert.equal((page.match(/data-budget-increment=/g) ?? []).length, 3);
+  assert.ok(app.includes("out.ingredient_policy = ingredients.length ? value('policy') : 'suggest'"));
+  assert.ok(app.includes("$('budget').value = Math.min(current + increment, 100000).toFixed(2)"));
+  assert.ok(app.includes("$('policy').value === 'only_available'"));
+  assert.ok(app.includes('function changePeople(amount)'));
+  assert.ok(app.includes("$('people-decrement').addEventListener('click', () => changePeople(-1))"));
+  assert.ok(app.includes("$('people-increment').addEventListener('click', () => changePeople(1))"));
+});
+
 test('preview: apoio em vídeo usa a rota autorizada, aviso contratual e link externo seguro', () => {
   const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
   const client = readFileSync(resolve(root, 'frontend/api-client.ts'), 'utf8');
@@ -190,13 +208,17 @@ test('preview: ingredientes traduzem unidades do contrato e respeitam singular/p
   assert.equal(formatIngredient({ quantity: 100, unit: 'g', name: 'arroz' }), '100 g de arroz');
 });
 
-test('preview: despensa só sugere ingredientes após consentimento e não cria afordância vazia', () => {
+test('preview: despensa sugere localmente e só envia contexto completo após consentimento', () => {
   const page = readFileSync(resolve(root, 'public/index.html'), 'utf8');
   const app = readFileSync(resolve(root, 'public/app.js'), 'utf8');
   const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
   assert.ok(page.includes('id="pantry-ingredient-suggestions"') && page.includes('hidden aria-live="polite"'));
   assert.ok(page.includes('Da sua despensa'));
-  assert.ok(screens.includes('personalization.pantry') && screens.includes('refeicao:pantry-suggestions'));
+  assert.ok(screens.includes('refeicao:pantry-suggestions'));
+  assert.ok(screens.includes('Mostrar nomes no formulário é uma sugestão local'));
+  assert.ok(screens.includes('refeicao-facil:local-pantry'));
+  assert.ok(screens.includes('setPantryState(items)'));
+  assert.ok(!screens.includes('personalization.pantry\n      ? [...new Set(pantry'));
   assert.ok(app.includes('section.hidden = items.length === 0'));
   assert.ok(app.includes("button.dataset.suggestTarget = 'ingredients'"));
   assert.ok(app.includes("target.dispatchEvent(new Event('input', { bubbles: true }))"));
