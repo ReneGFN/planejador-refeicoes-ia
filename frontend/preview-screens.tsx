@@ -48,7 +48,7 @@ function planCards(records: PlanRecord[]): Plan[] {
   return records.flatMap(plan => plan.data.suggestions.map((suggestion, index) => {
     const meal = mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index);
     return { id: `${plan.id}:${index}`, planId: plan.id, mode: plan.data.mode, suggestionIndex: index,
-      suggestion: suggestion as unknown as Suggestion,
+      suggestion: { ...(suggestion as unknown as Suggestion), __planId: plan.id, __mode: plan.data.mode, __index: index },
       ...(meal ? { mealLog: { id: meal.id, rating: meal.rating } } : {}) };
   }));
 }
@@ -158,6 +158,34 @@ export function PreviewScreens() {
   const finishAction = (key: string) => {
     actionLock.current.finish(key);
     setPendingActions(previous => { const next = new Set(previous); next.delete(key); return next; });
+  };
+  const refreshPlans = async () => setPlans(planCards(await api.plans.list()));
+  const consumePlanSuggestion = async (meta: SuggestionMeta) => {
+    if (!meta.__planId || !meta.__mode || meta.__index === undefined) {
+      setMessage("Salve e sincronize o plano antes de registrar o consumo.");
+      return;
+    }
+    const action = `consume:${meta.__planId}:${meta.__mode}:${meta.__index}`;
+    if (!startAction(action)) return;
+    try {
+      const response = await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode,
+          suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) });
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 409 && body.code === "DUPLICATE_REQUEST" && body.already_registered === true) {
+        setMessage("Esta opção já está registrada no diário.");
+      } else {
+        if (!response.ok) throw Error(body.message || "Não foi possível registrar.");
+        setMessage("Refeição registrada no diário.");
+      }
+      const fresh = await api.meals.list();
+      setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true })));
+      // O plano retorna os vínculos de consumo. Recarregá-lo aqui faz a avaliação
+      // aparecer imediatamente, sem exigir que a pessoa recarregue a página.
+      await refreshPlans();
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); }
+    finally { finishAction(action); }
   };
 
   useEffect(() => {
@@ -270,6 +298,11 @@ export function PreviewScreens() {
               {suggestion.ingredients && <section className="saved-plan-section"><h3>Ingredientes</h3><ul>{suggestion.ingredients.map((ingredient, index) => <li key={index}>{formatIngredient(ingredient)}</li>)}</ul></section>}
               {suggestion.steps && <><p className="preview-notice recipe-guidance"><I.warnIcon />Sugestão de preparo: confira se a sequência, o tempo e o cozimento fazem sentido para os ingredientes antes de começar.</p><section className="saved-plan-section"><h3>Modo de preparo</h3><ol className="recipe-steps">{suggestion.steps.map((step, index) => <li key={index}>{step}</li>)}</ol></section></>}
               <VideoSupportBlock suggestion={suggestion} />
+              {!plan.mealLog && plan.planId && plan.mode && plan.suggestionIndex !== undefined && (() => {
+                const action = `consume:${plan.planId}:${plan.mode}:${plan.suggestionIndex}`;
+                const pending = pendingActions.has(action);
+                return <button className="button secondary pressable" disabled={pending} onClick={() => consumePlanSuggestion({ ...suggestion, __planId: plan.planId, __mode: plan.mode, __index: plan.suggestionIndex })}><I.check />{pending ? "Salvando…" : "Comi isso"}</button>;
+              })()}
               {plan.mealLog && <MealRating value={plan.mealLog.rating} pending={ratingPending === plan.mealLog.id} onRate={rating => saveRating(plan.mealLog!.id, rating)} onRemove={() => saveRating(plan.mealLog!.id, null)} />}
             </div></details>
           </SwipeAction>;
@@ -288,30 +321,7 @@ export function PreviewScreens() {
             const meta = s as SuggestionMeta;
             const action = `consume:${meta.__planId}:${meta.__mode}:${meta.__index}`;
             const pending = pendingActions.has(action);
-            const consume = async () => {
-              if (!meta.__planId) { setMessage("Salve e sincronize o plano antes de registrar o consumo."); return; }
-              if (!startAction(action)) return;
-              try {
-                const response = await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin",
-                  headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-                  body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode,
-                    suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) });
-                const body = await response.json().catch(() => ({}));
-                if (response.status === 409 && body.code === "DUPLICATE_REQUEST" && body.already_registered === true) {
-                  setMessage("Esta opção já está registrada no diário.");
-                } else {
-                  if (!response.ok) throw Error(body.message || "Não foi possível registrar.");
-                  setMessage("Refeição registrada no diário.");
-                }
-                const fresh = await api.meals.list();
-                setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true })));
-                // O plano retorna os vínculos de consumo. Recarregá-lo aqui faz a avaliação
-                // aparecer imediatamente, sem exigir que a pessoa recarregue a página.
-                setPlans(planCards(await api.plans.list()));
-              } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); }
-              finally { finishAction(action); }
-            };
-            return <button className="button secondary pressable" disabled={pending} onClick={consume}><I.check />{pending ? "Salvando…" : "Comi isso"}</button>;
+            return <button className="button secondary pressable" disabled={pending} onClick={() => consumePlanSuggestion(meta)}><I.check />{pending ? "Salvando…" : "Comi isso"}</button>;
           })()}<button className="button primary pressable" disabled={plans.some(p=>p.suggestion===s)} onClick={() => { const meta = s as SuggestionMeta; setPlans(prev=>[...prev,{id:crypto.randomUUID(),suggestion:s,planId:meta.__planId,mode:meta.__mode,suggestionIndex:meta.__index}]); setMessage("Sugestão salva."); }}><I.save />{plans.some(p=>p.suggestion===s) ? "Salvo" : "Salvar sugestão"}</button></div>
           <VideoSupportBlock suggestion={s as SuggestionMeta} />
         </article>)}

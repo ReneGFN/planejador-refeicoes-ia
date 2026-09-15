@@ -142,7 +142,10 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(screens.includes('if (!startAction(action)) return'));
   assert.ok(screens.includes('body.already_registered === true'));
   assert.ok(screens.includes('Esta opção já está registrada no diário.'));
-  assert.ok(screens.includes('setPlans(planCards(await api.plans.list()))'));
+  assert.ok(screens.includes('const consumePlanSuggestion = async'));
+  assert.ok(screens.includes('await refreshPlans()'));
+  assert.ok(screens.includes('!plan.mealLog && plan.planId'));
+  assert.ok(screens.includes('"Comi isso"'));
   assert.ok(screens.indexOf('await api.meals.rate') < screens.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
 });
