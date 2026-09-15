@@ -23,7 +23,7 @@ function loadComponent(path, hash = '') {
     const localRequire = specifier => {
       if (!specifier.startsWith('.') && !specifier.startsWith('@/')) return require(specifier);
       const base = specifier.startsWith('@/') ? resolve(root, specifier.slice(2)) : resolve(dirname(filename), specifier);
-      let target; for (const ext of ['.tsx', '.ts']) { try { readFileSync(base + ext); target = base + ext; break; } catch {} }
+      let target; for (const candidate of [base, ...['.tsx', '.ts', '.js'].map(ext => base + ext)]) { try { readFileSync(candidate); target = candidate; break; } catch {} }
       if (!target) throw Error(`Cannot resolve ${specifier}`);
       return load(target);
     };
@@ -135,8 +135,13 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   const client = readFileSync(resolve(root, 'frontend/api-client.ts'), 'utf8');
   assert.ok(component.includes('Utensils') && component.includes('motion.button'));
   assert.ok(component.includes('disabled={pending}'));
-  assert.ok(screens.includes('plan.meal_logs ?? []'));
-  assert.ok(screens.includes('if (ratingPending) return'));
+  assert.ok(screens.includes('mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index)'));
+  assert.ok(screens.includes('matches.find(meal => meal.rating !== null) ?? matches[0] ?? null'));
+  assert.ok(screens.includes('{plan.mealLog && <MealRating'));
+  assert.ok(!screens.includes('plan.mealLogs?.map'));
+  assert.ok(screens.includes('if (!startAction(action)) return'));
+  assert.ok(screens.includes('body.already_registered === true'));
+  assert.ok(screens.includes('Esta opção já está registrada no diário.'));
   assert.ok(screens.indexOf('await api.meals.rate') < screens.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
 });
@@ -206,6 +211,16 @@ test('preview: ingredientes traduzem unidades do contrato e respeitam singular/p
   assert.equal(formatIngredient({ quantity: 1, unit: 'tablespoon', name: 'azeite' }), '1 colher de sopa de azeite');
   assert.equal(formatIngredient({ quantity: 1.5, unit: 'cup', name: 'leite' }), '1,5 xícaras de leite');
   assert.equal(formatIngredient({ quantity: 100, unit: 'g', name: 'arroz' }), '100 g de arroz');
+});
+
+test('preview: plano salvo preserva tempo, ingredientes, preparo e seleção segura de vídeo', () => {
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  const videoSelection = readFileSync(resolve(root, 'src/video/selection.js'), 'utf8');
+  for (const value of ['suggestion.total_minutes', 'formatIngredient(ingredient)', 'Modo de preparo', '<VideoSupportBlock suggestion={suggestion} />']) {
+    assert.ok(screens.includes(value), value);
+  }
+  assert.ok(videoSelection.includes('WHERE visitor_id = ?1 AND id = ?2'));
+  assert.ok(videoSelection.includes('return validateVideoInput({ title: suggestion.title }).title'));
 });
 
 test('preview: despensa sugere localmente e só envia contexto completo após consentimento', () => {

@@ -191,6 +191,25 @@ test('diário idempotência: reenvio 409, conteúdo diferente não altera ação
   const stored = h.DB.sqlite.prepare('SELECT action_key FROM meal_log_mutations LIMIT 1').get().action_key;
   assert.match(stored, /^[0-9a-f]{64}$/u); assert.equal(stored.includes(key), false);
 });
+test('diário seleção: servidor colapsa chaves diferentes para a mesma opção no mesmo dia UTC', async t => {
+  const h = await setup(t), plan = await h.plan();
+  const eaten = '2026-01-10T19:00:00-03:00';
+  const first = await h.send({ body: h.selected(plan, 'cook', { eaten_at: eaten }), key: crypto.randomUUID() });
+  assert.equal(first.status, 201);
+  const repeated = await h.send({ body: h.selected(plan, 'cook', { eaten_at: eaten }), key: crypto.randomUUID() });
+  assert.equal(repeated.status, 409);
+  assert.deepEqual(await repeated.json(), {
+    code: 'DUPLICATE_REQUEST',
+    message: 'Este pedido já foi recebido. Não será feita outra chamada à IA.',
+    quotaReserved: false,
+    receipt: { operation: 'create', meal_log_id: (await first.json()).data.id },
+    already_registered: true,
+    note: 'Esta opção já está registrada no diário.',
+  });
+  assert.equal(h.count('meal_logs'), 1); assert.equal(h.count('meal_log_mutations'), 1);
+  const anotherDay = await h.send({ body: h.selected(plan, 'cook', { eaten_at: '2026-01-11T19:00:00-03:00' }), key: crypto.randomUUID() });
+  assert.equal(anotherDay.status, 201); assert.equal(h.count('meal_logs'), 2);
+});
 test('diário edição: substitui campos editáveis, preserva origem/instantâneo e reenvio não desfaz edição posterior', async t => {
   const h = await setup(t), plan = await h.plan(), id = await h.create(h.selected(plan, 'cook', { servings_consumed: 0.5 }));
   const before = await getMeal(h.env, h.visitor, id), key = crypto.randomUUID();

@@ -256,7 +256,9 @@ export function createApiHandlers({ fetchImpl } = {}) {
       if (result.duplicate) {
         const [status, message] = ERRORS.DUPLICATE_REQUEST;
         return jsonResponse({ code: 'DUPLICATE_REQUEST', message, quotaReserved: false, receipt: result.receipt,
-          note: 'Esta ação não foi repetida. Consulte o diário para ver o estado atual; o registro pode ter sido editado ou excluído.' }, status);
+          ...(result.alreadyRegistered ? { already_registered: true,
+            note: 'Esta opção já está registrada no diário.' }
+            : { note: 'Esta ação não foi repetida. Consulte o diário para ver o estado atual; o registro pode ter sido editado ou excluído.' }) }, status);
       }
       return jsonResponse({ data: result.data }, operation === 'create' ? 201 : 200);
     } catch (error) { return failure(error); }

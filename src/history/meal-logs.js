@@ -64,6 +64,12 @@ async function receipt(env, visitor, key) {
 }
 const duplicate = row => ({ duplicate: true, receipt: { operation: row.operation, meal_log_id: row.target_id } });
 
+function selectionAction(input) {
+  // A chave vem da ação de produto, não do identificador aleatório do clique.
+  // O dia UTC permite registrar legitimamente a mesma sugestão em outro dia.
+  return `v1:${input.plan_id}:${input.side}:${input.suggestion_index}:${input.eaten_at.slice(0, 10)}`;
+}
+
 export async function mutateMeal(env, visitor, operation, id, raw, key, { now = Date.now() } = {}) {
   identity(visitor, now); mealId(key);
   const revision = await captureHistoryRevision(env, visitor);
@@ -73,10 +79,13 @@ export async function mutateMeal(env, visitor, operation, id, raw, key, { now = 
       : operation === 'delete' ? validateMealDelete(raw) : null;
   if (!input) throw missing();
   const target = operation === 'create' ? crypto.randomUUID() : mealId(id);
-  // Espaço de chaves compartilhado entre as três mutações, separado de geração/visão.
-  const actionKey = await usageReservationId('meal_log', visitor.visitorId, key.toLowerCase());
+  // Seleções de plano têm identidade própria: nem outro navegador nem um cliente com
+  // chave aleatória podem criar uma segunda confirmação da mesma opção no mesmo dia.
+  const planSelection = operation === 'create' && input.source === 'plan_suggestion';
+  const actionKey = await usageReservationId(planSelection ? 'meal_log_selection' : 'meal_log', visitor.visitorId,
+    planSelection ? selectionAction(input) : key.toLowerCase());
   const previous = await receipt(env, visitor, actionKey);
-  if (previous) return duplicate(previous);
+  if (previous) return { ...duplicate(previous), alreadyRegistered: planSelection };
   if (operation === 'update') await getMeal(env, visitor, target, { now });
 
   let document, planId = null;
@@ -138,7 +147,7 @@ export async function mutateMeal(env, visitor, operation, id, raw, key, { now = 
   if (results.some(result => !result.success)) throw unavailable();
   if (results[0].meta?.changes === 0) {
     const existing = await receipt(env, visitor, actionKey);
-    if (existing) return duplicate(existing);
+    if (existing) return { ...duplicate(existing), alreadyRegistered: planSelection };
     throw missing();
   }
   if (results[1].meta?.changes !== 1) throw unavailable();

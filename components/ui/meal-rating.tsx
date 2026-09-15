@@ -20,7 +20,7 @@ export function MealRating({ value, onRate, onRemove, pending = false, className
   const highlighted = hover ?? value ?? 0;
 
   return <section className={cn("meal-rating", pending && "meal-rating-pending", className)} aria-label={`Avaliação da refeição: ${ratingText(value)}`}>
-    <div className="meal-rating-heading"><span>Como foi essa refeição?</span><strong aria-live="polite">{ratingText(value)}</strong></div>
+    <div className="meal-rating-heading"><span>Como foi essa refeição?</span><strong aria-live="polite">{pending ? "Salvando avaliação…" : ratingText(value)}</strong></div>
     <div className="meal-rating-controls" aria-label={`Escolha uma nota. Atual: ${ratingText(value)}`} onMouseLeave={() => setHover(null)}>
       {Array.from({ length: 5 }, (_, index) => index + 1).map(rating => <motion.button
         key={rating}

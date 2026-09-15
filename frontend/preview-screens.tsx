@@ -11,6 +11,7 @@ import { formatIngredient } from "./ingredient-format";
 import { Info, Sparkles } from "lucide-react";
 import { WeeklyShareCard } from "@/components/ui/weekly-share-card";
 import { MealRating } from "@/components/ui/meal-rating";
+import { createActionLock } from "./action-lock.js";
 
 type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao";
 const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao"];
@@ -33,8 +34,15 @@ const startWith = (meal: string) => {
 interface Entry { id: string; title: string; note: string; eatenAt?: string; remote?: boolean }
 interface Suggestion { title: string; description?: string; servings?: number; total_minutes?: number; ingredients?: { quantity: string | number; unit: string; name: string }[]; steps?: string[] }
 interface PlanMeal { id: string; rating: number | null }
-interface Plan { id: string; suggestion: Suggestion; planId?: string; mode?: "cook" | "ready"; suggestionIndex?: number; mealLogs?: PlanMeal[] }
+interface Plan { id: string; suggestion: Suggestion; planId?: string; mode?: "cook" | "ready"; suggestionIndex?: number; mealLog?: PlanMeal }
 type SuggestionMeta = Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number };
+
+function mealForSuggestion(meals: Array<{ id: string; side: "cook" | "ready"; suggestion_index: number; rating: number | null }>, side: "cook" | "ready", index: number) {
+  const matches = meals.filter(meal => meal.side === side && meal.suggestion_index === index);
+  // Dados antigos podem ter duplicata. A tela preserva o diário, mas mostra uma única
+  // avaliação na alternativa correspondente e prioriza a que a pessoa já avaliou.
+  return matches.find(meal => meal.rating !== null) ?? matches[0] ?? null;
+}
 
 function Empty({ icon, children }: { icon: keyof typeof I; children: ReactNode }) {
   const Icon = I[icon];
@@ -127,8 +135,20 @@ export function PreviewScreens() {
   const [message, setMessage] = useState("");
   const [connected, setConnected] = useState(false);
   const [ratingPending, setRatingPending] = useState<string | null>(null);
+  const [pendingActions, setPendingActions] = useState<Set<string>>(() => new Set());
   const screen = useRef<HTMLDivElement>(null);
   const initialRoute = useRef(true);
+  const actionLock = useRef(createActionLock());
+
+  const startAction = (key: string) => {
+    if (!actionLock.current.start(key)) return false;
+    setPendingActions(previous => new Set(previous).add(key));
+    return true;
+  };
+  const finishAction = (key: string) => {
+    actionLock.current.finish(key);
+    setPendingActions(previous => { const next = new Set(previous); next.delete(key); return next; });
+  };
 
   useEffect(() => {
     const update = () => { setRoute(currentRoute()); setModal(null); setRemove(null); setMessage(""); };
@@ -147,14 +167,12 @@ export function PreviewScreens() {
       if (mealResult.status === "fulfilled") { setDiary(mealResult.value.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setConnected(true); }
       if (pantryResult.status === "fulfilled") setPantry(pantryResult.value.map(item => ({ id: item.id, name: item.name, quantity: item.quantity?.toString() || "", unit: item.unit || "", expiry: item.expires_at || "", revision: item.revision, remote: true })));
       if (preferencesResult.status === "fulfilled") setPersonalization({ history: preferencesResult.value.use_history, pantry: Boolean(preferencesResult.value.use_pantry) });
-      if (plansResult.status === "fulfilled") setPlans(plansResult.value.flatMap(plan => plan.data.suggestions.map((suggestion, index) => ({
-        id: `${plan.id}:${index}`,
-        planId: plan.id,
-        mode: plan.data.mode,
-        suggestionIndex: index,
-        suggestion: suggestion as unknown as Suggestion,
-        mealLogs: (plan.meal_logs ?? []).filter(meal => meal.side === plan.data.mode && meal.suggestion_index === index).map(meal => ({ id: meal.id, rating: meal.rating })),
-      }))));
+      if (plansResult.status === "fulfilled") setPlans(plansResult.value.flatMap(plan => plan.data.suggestions.map((suggestion, index) => {
+        const meal = mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index);
+        return { id: `${plan.id}:${index}`, planId: plan.id, mode: plan.data.mode, suggestionIndex: index,
+          suggestion: suggestion as unknown as Suggestion,
+          ...(meal ? { mealLog: { id: meal.id, rating: meal.rating } } : {}) };
+      })));
     });
     const local = (e: Event) => setMessage((e as CustomEvent<string>).detail);
     document.addEventListener("refeicao:local-message", local);
@@ -186,21 +204,27 @@ export function PreviewScreens() {
   }
   async function confirmRemoval() {
     if (!remove) return;
-    if (remove.kind === "diario") { const entry = diary.find(x => x.id === remove.id); if (entry?.remote) try { await api.meals.remove(entry.id); } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível excluir."); return; } setDiary(prev => prev.filter(x => x.id !== remove.id)); }
-    else if (remove.kind === "compras") setShopping(prev => prev.filter(x => x.id !== remove.id));
-    else { const plan = plans.find(x => x.id === remove.id); if (plan?.planId) try { await api.plans.remove(plan.planId); setPlans(prev => prev.filter(x => x.planId !== plan.planId)); } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível excluir o plano."); return; } else setPlans(prev => prev.filter(x => x.id !== remove.id)); }
-    setRemove(null); setMessage("Item removido da sessão.");
+    const action = `remove:${remove.kind}:${remove.id}`;
+    if (!startAction(action)) return;
+    try {
+      if (remove.kind === "diario") { const entry = diary.find(x => x.id === remove.id); if (entry?.remote) await api.meals.remove(entry.id); setDiary(prev => prev.filter(x => x.id !== remove.id)); }
+      else if (remove.kind === "compras") setShopping(prev => prev.filter(x => x.id !== remove.id));
+      else { const plan = plans.find(x => x.id === remove.id); if (plan?.planId) { await api.plans.remove(plan.planId); setPlans(prev => prev.filter(x => x.planId !== plan.planId)); } else setPlans(prev => prev.filter(x => x.id !== remove.id)); }
+      setRemove(null); setMessage("Item removido da sessão.");
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível excluir."); }
+    finally { finishAction(action); }
   }
   async function saveRating(mealId: string, rating: number | null) {
-    if (ratingPending) return;
+    const action = `rating:${mealId}`;
+    if (!startAction(action)) return;
     setRatingPending(mealId);
     try {
       await api.meals.rate(mealId, rating);
-      setPlans(previous => previous.map(plan => ({ ...plan, mealLogs: plan.mealLogs?.map(meal => meal.id === mealId ? { ...meal, rating } : meal) })));
+      setPlans(previous => previous.map(plan => plan.mealLog?.id === mealId ? { ...plan, mealLog: { ...plan.mealLog, rating } } : plan));
       setMessage(rating === null ? "Avaliação removida." : "Avaliação salva.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível salvar a avaliação. A nota anterior foi mantida.");
-    } finally { setRatingPending(null); }
+    } finally { setRatingPending(null); finishAction(action); }
   }
   const entries = route === "diario" ? diary : shopping;
   return <>
@@ -232,9 +256,19 @@ export function PreviewScreens() {
       </>}
       {route === "planos" && <><Back title="Planos anteriores" /><DataNotice connected={connected} />
         {!plans.length && <><Empty icon="history">Nenhum plano salvo ainda</Empty><QuickSuggestions label="Ideias para começar" options={["Jantar rápido", "Marmita da semana", "Refeição econômica", "Almoço em família"]} onSelect={startWith} /><button className="button primary pressable glow-action" onClick={openPlanner}><I.plus />Começar um pedido</button></>}
-        {plans.map(plan => <SwipeAction key={plan.id} label="Excluir plano" onAction={() => setRemove({kind:"planos",id:plan.id,title:plan.suggestion.title})}>
-          <details className="saved-plan"><summary><I.history /><span>{plan.suggestion.title}</span><I.chevDown /></summary><div className="saved-plan-body"><p>{plan.suggestion.description}</p>{plan.suggestion.steps?.map((step,i)=><p key={i}>{step}</p>)}{plan.mealLogs?.map((meal, index) => <MealRating key={meal.id} value={meal.rating} pending={ratingPending === meal.id} onRate={rating => saveRating(meal.id, rating)} onRemove={() => saveRating(meal.id, null)} className={index ? "meal-rating-follow-up" : undefined} />)}</div></details>
-        </SwipeAction>)}
+        {plans.map(plan => {
+          const suggestion: SuggestionMeta = { ...plan.suggestion, __planId: plan.planId, __mode: plan.mode, __index: plan.suggestionIndex };
+          return <SwipeAction key={plan.id} label="Excluir plano" onAction={() => setRemove({kind:"planos",id:plan.id,title:plan.suggestion.title})}>
+            <details className="saved-plan"><summary><I.history /><span>{suggestion.title}</span><I.chevDown /></summary><div className="saved-plan-body">
+              {suggestion.description && <p>{suggestion.description}</p>}
+              <p className="result-meta"><I.people size={15} />{suggestion.servings ?? "—"} pessoas {suggestion.total_minutes && <><I.clock size={15} />{suggestion.total_minutes} min</>}</p>
+              {suggestion.ingredients && <section className="saved-plan-section"><h3>Ingredientes</h3><ul>{suggestion.ingredients.map((ingredient, index) => <li key={index}>{formatIngredient(ingredient)}</li>)}</ul></section>}
+              {suggestion.steps && <><p className="preview-notice recipe-guidance"><I.warnIcon />Sugestão de preparo: confira se a sequência, o tempo e o cozimento fazem sentido para os ingredientes antes de começar.</p><section className="saved-plan-section"><h3>Modo de preparo</h3><ol className="recipe-steps">{suggestion.steps.map((step, index) => <li key={index}>{step}</li>)}</ol></section></>}
+              <VideoSupportBlock suggestion={suggestion} />
+              {plan.mealLog && <MealRating value={plan.mealLog.rating} pending={ratingPending === plan.mealLog.id} onRate={rating => saveRating(plan.mealLog!.id, rating)} onRemove={() => saveRating(plan.mealLog!.id, null)} />}
+            </div></details>
+          </SwipeAction>;
+        })}
       </>}
       {route === "foto" && <PhotoScreen />}
       {route === "config" && <><Back title="Configurações" /><Card title="Preferências"><a className="summary-link" href="#personalizacao"><I.settings /><span>Personalização</span><I.chevLeft className="icon-forward" /></a></Card><Card title="Aparência"><div className="settings-row"><span>Usar tema escuro</span><ThemeToggle /></div></Card><p className="copy">A escolha de tema fica salva neste navegador. As demais preferências de conta ainda não estão conectadas.</p></>}
@@ -245,13 +279,38 @@ export function PreviewScreens() {
           {s.steps && <p className="preview-notice recipe-guidance"><I.warnIcon />Sugestão de preparo: confira se a sequência, o tempo e o cozimento fazem sentido para os ingredientes antes de começar.</p>}
           {s.steps && <div className="recipe-steps">{s.steps.map((step,j)=><p key={j}>{step}</p>)}</div>}
           {s.steps && (!s.steps.length || /^\s*(?:[2-9]|[1-9]\d+)\s*[.)]/.test(s.steps[0])) && <p className="preview-notice"><I.warnIcon />Confira a sequência: ela parece incompleta.</p>}
-          <div className="preview-actions"><button className="button secondary pressable" onClick={async () => { const meta = s as SuggestionMeta; if (!meta.__planId) { setMessage("Salve e sincronize o plano antes de registrar o consumo."); return; } try { await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode, suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) }).then(async response => { if (!response.ok) throw Error((await response.json().catch(()=>({}))).message || "Não foi possível registrar."); }); const fresh = await api.meals.list(); setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setMessage("Refeição registrada no diário."); } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); } }}><I.check />Comi isso</button><button className="button primary pressable" disabled={plans.some(p=>p.suggestion===s)} onClick={() => { const meta = s as SuggestionMeta; setPlans(prev=>[...prev,{id:crypto.randomUUID(),suggestion:s,planId:meta.__planId,mode:meta.__mode,suggestionIndex:meta.__index}]); setMessage("Sugestão salva."); }}><I.save />{plans.some(p=>p.suggestion===s) ? "Salvo" : "Salvar sugestão"}</button></div>
+          <div className="preview-actions">{(() => {
+            const meta = s as SuggestionMeta;
+            const action = `consume:${meta.__planId}:${meta.__mode}:${meta.__index}`;
+            const pending = pendingActions.has(action);
+            const consume = async () => {
+              if (!meta.__planId) { setMessage("Salve e sincronize o plano antes de registrar o consumo."); return; }
+              if (!startAction(action)) return;
+              try {
+                const response = await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin",
+                  headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+                  body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode,
+                    suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) });
+                const body = await response.json().catch(() => ({}));
+                if (response.status === 409 && body.code === "DUPLICATE_REQUEST" && body.already_registered === true) {
+                  setMessage("Esta opção já está registrada no diário.");
+                } else {
+                  if (!response.ok) throw Error(body.message || "Não foi possível registrar.");
+                  setMessage("Refeição registrada no diário.");
+                }
+                const fresh = await api.meals.list();
+                setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true })));
+              } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); }
+              finally { finishAction(action); }
+            };
+            return <button className="button secondary pressable" disabled={pending} onClick={consume}><I.check />{pending ? "Salvando…" : "Comi isso"}</button>;
+          })()}<button className="button primary pressable" disabled={plans.some(p=>p.suggestion===s)} onClick={() => { const meta = s as SuggestionMeta; setPlans(prev=>[...prev,{id:crypto.randomUUID(),suggestion:s,planId:meta.__planId,mode:meta.__mode,suggestionIndex:meta.__index}]); setMessage("Sugestão salva."); }}><I.save />{plans.some(p=>p.suggestion===s) ? "Salvo" : "Salvar sugestão"}</button></div>
           <VideoSupportBlock suggestion={s as SuggestionMeta} />
         </article>)}
       </>}
       {message && <p role="status" className="local-feedback"><I.check />{message}</p>}
     </div>
     {modal && <DragSheet title={modal.entry ? "Editar registro" : modal.kind === "diario" ? "Registrar refeição" : "Adicionar item"} onClose={() => setModal(null)}><EntryForm kind={modal.kind} initial={modal.entry} onSave={saveEntry} onCancel={()=>setModal(null)} /></DragSheet>}
-    {remove && <DragSheet title={remove.kind === "compras" ? "Dar baixa no item?" : "Excluir este registro?"} onClose={() => setRemove(null)}><p>{remove.title}</p><p className="copy">Este item será removido apenas da prévia desta sessão.</p><div className="preview-actions"><button className="button secondary pressable" onClick={() => setRemove(null)}>Cancelar</button><button className="button primary pressable" onClick={confirmRemoval}><I.trash />Confirmar</button></div></DragSheet>}
+    {remove && (() => { const pending = pendingActions.has(`remove:${remove.kind}:${remove.id}`); return <DragSheet title={remove.kind === "compras" ? "Dar baixa no item?" : "Excluir este registro?"} onClose={() => !pending && setRemove(null)}><p>{remove.title}</p><p className="copy">Este item será removido apenas da prévia desta sessão.</p><div className="preview-actions"><button className="button secondary pressable" disabled={pending} onClick={() => setRemove(null)}>Cancelar</button><button className="button primary pressable" disabled={pending} onClick={confirmRemoval}><I.trash />{pending ? "Excluindo…" : "Confirmar"}</button></div></DragSheet>; })()}
   </>;
 }
