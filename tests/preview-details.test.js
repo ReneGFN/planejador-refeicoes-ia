@@ -142,6 +142,7 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(screens.includes('if (!startAction(action)) return'));
   assert.ok(screens.includes('body.already_registered === true'));
   assert.ok(screens.includes('Esta opção já está registrada no diário.'));
+  assert.ok(screens.includes('setPlans(planCards(await api.plans.list()))'));
   assert.ok(screens.indexOf('await api.meals.rate') < screens.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
 });
@@ -200,6 +201,8 @@ test('preview: apoio em vídeo usa a rota autorizada, aviso contratual e link ex
   assert.ok(screens.includes('support.notice.text'));
   assert.ok(screens.includes('target="_blank" rel="noopener noreferrer"'));
   assert.ok(screens.includes('aria-label="Sobre o vídeo de apoio"'));
+  assert.ok(screens.includes('https://www.youtube.com/results?search_query='));
+  assert.ok(screens.includes('Você ainda pode pesquisar esta receita diretamente.'));
   assert.ok(!screens.includes('<iframe'));
   assert.ok(!headers.includes('unsafe-inline'));
 });

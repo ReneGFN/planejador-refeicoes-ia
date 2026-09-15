@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PantryPreview, PersonalizationPreview, type PantryEntry } from "@/components/ui/pantry-preview";
 import { DiaryIcon } from "@/components/ui/diary-icon";
 import { QuickSuggestions } from "@/components/ui/quick-suggestions";
-import { api, ApiError, type MealRecord, type PantryRecord } from "./api-client";
+import { api, ApiError, type MealRecord, type PantryRecord, type PlanRecord } from "./api-client";
 import { formatIngredient } from "./ingredient-format";
 import { Info, Sparkles } from "lucide-react";
 import { WeeklyShareCard } from "@/components/ui/weekly-share-card";
@@ -44,6 +44,15 @@ function mealForSuggestion(meals: Array<{ id: string; side: "cook" | "ready"; su
   return matches.find(meal => meal.rating !== null) ?? matches[0] ?? null;
 }
 
+function planCards(records: PlanRecord[]): Plan[] {
+  return records.flatMap(plan => plan.data.suggestions.map((suggestion, index) => {
+    const meal = mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index);
+    return { id: `${plan.id}:${index}`, planId: plan.id, mode: plan.data.mode, suggestionIndex: index,
+      suggestion: suggestion as unknown as Suggestion,
+      ...(meal ? { mealLog: { id: meal.id, rating: meal.rating } } : {}) };
+  }));
+}
+
 function Empty({ icon, children }: { icon: keyof typeof I; children: ReactNode }) {
   const Icon = I[icon];
   return <div className="preview-empty"><span className="empty-icon"><Icon /></span><p>{children}</p></div>;
@@ -54,6 +63,7 @@ function VideoSupportBlock({ suggestion }: { suggestion: SuggestionMeta }) {
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const supportId = `video-support-${suggestion.__planId ?? suggestion.title.replace(/\W/gu, "")}-${suggestion.__index ?? 0}`;
+  const fallbackUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(suggestion.title)}`;
   async function reveal() {
     const next = !open; setOpen(next);
     if (!next || support || loading || unavailable || !suggestion.__planId || !suggestion.__mode || suggestion.__index === undefined) return;
@@ -69,7 +79,7 @@ function VideoSupportBlock({ suggestion }: { suggestion: SuggestionMeta }) {
     {open && <div id={supportId} className="video-support-body" role="status" aria-live="polite">
       {loading && <p>Carregando apoio em vídeo…</p>}
       {support && <><p className="preview-notice"><I.warnIcon />{support.notice.text}</p><p className="video-origin">YouTube</p><a className="button secondary pressable video-search-link" href={support.search.url} target="_blank" rel="noopener noreferrer"><I.link />Buscar no YouTube<span className="visually-hidden">: abre uma nova aba no YouTube</span></a></>}
-      {unavailable && <p className="video-unavailable">O apoio em vídeo não está disponível agora. Sua receita continua disponível.</p>}
+      {unavailable && <><p className="video-unavailable">Não foi possível preparar o apoio em vídeo agora. Você ainda pode pesquisar esta receita diretamente.</p><a className="button secondary pressable video-search-link" href={fallbackUrl} target="_blank" rel="noopener noreferrer"><I.link />Buscar no YouTube<span className="visually-hidden">: abre uma nova aba no YouTube</span></a></>}
     </div>}
   </section>;
 }
@@ -167,12 +177,7 @@ export function PreviewScreens() {
       if (mealResult.status === "fulfilled") { setDiary(mealResult.value.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setConnected(true); }
       if (pantryResult.status === "fulfilled") setPantry(pantryResult.value.map(item => ({ id: item.id, name: item.name, quantity: item.quantity?.toString() || "", unit: item.unit || "", expiry: item.expires_at || "", revision: item.revision, remote: true })));
       if (preferencesResult.status === "fulfilled") setPersonalization({ history: preferencesResult.value.use_history, pantry: Boolean(preferencesResult.value.use_pantry) });
-      if (plansResult.status === "fulfilled") setPlans(plansResult.value.flatMap(plan => plan.data.suggestions.map((suggestion, index) => {
-        const meal = mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index);
-        return { id: `${plan.id}:${index}`, planId: plan.id, mode: plan.data.mode, suggestionIndex: index,
-          suggestion: suggestion as unknown as Suggestion,
-          ...(meal ? { mealLog: { id: meal.id, rating: meal.rating } } : {}) };
-      })));
+      if (plansResult.status === "fulfilled") setPlans(planCards(plansResult.value));
     });
     const local = (e: Event) => setMessage((e as CustomEvent<string>).detail);
     document.addEventListener("refeicao:local-message", local);
@@ -300,6 +305,9 @@ export function PreviewScreens() {
                 }
                 const fresh = await api.meals.list();
                 setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true })));
+                // O plano retorna os vínculos de consumo. Recarregá-lo aqui faz a avaliação
+                // aparecer imediatamente, sem exigir que a pessoa recarregue a página.
+                setPlans(planCards(await api.plans.list()));
               } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); }
               finally { finishAction(action); }
             };
