@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PreviewIcons as I, PreviewLogo } from "@/components/ui/preview-icons";
 import { PreviewScreens } from "./preview-screens";
-import { installPlannerDrag } from "./planner-details";
 import { ExpandableTabs, type TabItem } from "@/components/ui/expandable-tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PwaStatus } from "@/components/ui/pwa-status";
@@ -19,22 +18,18 @@ const destinationIndex = () => {
 
 function MealNavigation() {
   const [destination, setDestination] = useState(destinationIndex);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [plannerOpen, setPlannerOpen] = useState(() => location.hash === "#pedido");
 
   useEffect(() => {
-    const sheet = document.getElementById("meal-sheet");
-    const syncPanel = () => setPanelOpen(Boolean(sheet && !sheet.hidden));
-    const syncHash = () => setDestination(destinationIndex());
-    const observer = new MutationObserver(syncPanel);
-    if (sheet) observer.observe(sheet, { attributes: true, attributeFilter: ["hidden"] });
+    const syncHash = () => { setDestination(destinationIndex()); setPlannerOpen(location.hash === "#pedido"); };
     window.addEventListener("hashchange", syncHash);
-    syncPanel();
-    return () => { observer.disconnect(); window.removeEventListener("hashchange", syncHash); };
+    syncHash();
+    return () => { window.removeEventListener("hashchange", syncHash); };
   }, []);
 
   const tabs: TabItem[] = [
     { title: "Início", icon: I.home, href: "#inicio" },
-    { title: "Planejar", icon: I.plan, controls: "meal-sheet", expanded: panelOpen },
+    { title: "Planejar", icon: I.plan, controls: "meal-screen", expanded: plannerOpen },
     { title: "Planos", icon: I.history, href: "#planos" },
     { title: "Compras", icon: I.cart, href: "#compras" },
     { title: "Configurações", icon: I.settings, href: "#config" },
@@ -47,13 +42,13 @@ function MealNavigation() {
       document.dispatchEvent(new CustomEvent("refeicao:open-planner"));
       return;
     }
-    if (panelOpen) document.getElementById("close")?.click();
+    if (plannerOpen) document.getElementById("close")?.click();
     setDestination(index);
     document.getElementById(destinations[index])?.focus({ preventScroll: true });
   }
 
   return <nav className="meal-navigation" aria-label="Navegação principal">
-    <ExpandableTabs tabs={tabs} persistentLabels activeIndex={panelOpen ? 1 : destination}
+    <ExpandableTabs tabs={tabs} persistentLabels activeIndex={plannerOpen ? 1 : destination}
       onChange={navigate} activeColor="text-accent" className="meal-navigation-glass" />
   </nav>;
 }
@@ -72,4 +67,3 @@ const detailIcons = { "toggle-icon": I.chevUp, "clear-icon": I.trash, "close-ico
 for (const [id, Icon] of Object.entries(detailIcons)) { const element = document.getElementById(id); if (element) createRoot(element).render(<Icon size={16} />); }
 const modeIcons = { "mode-cook-icon": Utensils, "mode-ready-icon": ShoppingBag };
 for (const [id, Icon] of Object.entries(modeIcons)) { const element = document.getElementById(id); if (element) createRoot(element).render(<Icon size={21} strokeWidth={1.9} />); }
-installPlannerDrag();

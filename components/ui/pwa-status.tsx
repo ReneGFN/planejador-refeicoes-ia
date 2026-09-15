@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { Download, RefreshCw, WifiOff } from "lucide-react";
 
-interface InstallPromptEvent extends Event { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> }
+interface InstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
 
 export function PwaStatus() {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [installNotice, setInstallNotice] = useState("");
 
   useEffect(() => {
     const onlineHandler = () => setOnline(true), offlineHandler = () => setOnline(false);
@@ -37,9 +42,25 @@ export function PwaStatus() {
     };
   }, []);
 
-  async function install() { if (!installPrompt) return; await installPrompt.prompt(); await installPrompt.userChoice; setInstallPrompt(null); }
+  async function install() {
+    if (!installPrompt || isInstalling) return;
+
+    setIsInstalling(true);
+    setInstallNotice("");
+    try {
+      // O browser exige que prompt() seja chamado por uma ação explícita da pessoa.
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      setInstallPrompt(null);
+    } catch {
+      setInstallNotice("Não foi possível abrir a instalação agora. Tente novamente.");
+    } finally {
+      setIsInstalling(false);
+    }
+  }
+
   if (!online) return <span className="pwa-chip" role="status"><WifiOff size={15} /> Offline</span>;
   if (waiting) return <button className="pwa-chip pwa-action" type="button" onClick={() => waiting.postMessage("SKIP_WAITING")}><RefreshCw size={15} /> Atualizar</button>;
-  if (installPrompt) return <button className="pwa-chip pwa-action" type="button" onClick={install}><Download size={15} /> Instalar</button>;
+  if (installPrompt) return <><button className="pwa-chip pwa-action" type="button" onClick={install} disabled={isInstalling} aria-label="Instalar o aplicativo Refeição Fácil"><Download size={15} /> {isInstalling ? "Abrindo…" : "Instalar app"}</button><span className="sr-only" role="status" aria-live="polite">{installNotice}</span></>;
   return null;
 }

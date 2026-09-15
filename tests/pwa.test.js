@@ -20,5 +20,15 @@ test("service worker caches the shell but never intercepts API calls", async () 
 test("page links the manifest and reserves the PWA status control", async () => {
   const source = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   assert.match(source, /rel="manifest"/);
+  assert.match(source, /name="mobile-web-app-capable" content="yes"/);
   assert.match(source, /id="pwa-status"/);
+});
+
+test("install invitation holds the browser event and opens it only from the visible action", async () => {
+  const source = await readFile(new URL("../components/ui/pwa-status.tsx", import.meta.url), "utf8");
+  assert.match(source, /event\.preventDefault\(\); setInstallPrompt/);
+  assert.match(source, /await installPrompt\.prompt\(\)/);
+  assert.match(source, /await installPrompt\.userChoice/);
+  assert.match(source, /Instalar app/);
+  assert.match(source, /appinstalled/);
 });

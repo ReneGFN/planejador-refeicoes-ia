@@ -142,11 +142,52 @@ test('preview: sugestões rápidas cobrem planejador, compras, despensa, planos,
   assert.ok(page.includes('data-suggest-target="meal"'));
   assert.ok(page.includes('data-suggest-target="ingredients"'));
   assert.ok(page.includes('data-suggest-target="preferences"'));
-  assert.ok(app.includes("target.dispatchEvent(new Event('input',{bubbles:true}))"));
+  assert.match(app, /target\.dispatchEvent\(new Event\('input',\s*\{\s*bubbles:\s*true\s*\}\)\)/);
   for (const text of ['Café da manhã', 'Arroz', 'Ingredientes comuns', 'Ideias para começar']) assert.ok(screens.includes(text));
   assert.ok(pantry.includes('Azeite de oliva'));
   assert.ok(css.includes('.suggestion-chip[aria-pressed="true"]'));
   assert.ok(css.includes('--glow-green'));
+});
+
+test('preview: apoio em vídeo usa a rota autorizada, aviso contratual e link externo seguro', () => {
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  const client = readFileSync(resolve(root, 'frontend/api-client.ts'), 'utf8');
+  const headers = readFileSync(resolve(root, 'public/_headers'), 'utf8');
+  assert.ok(client.includes('request("/api/video"'));
+  assert.ok(screens.includes('support.notice.text'));
+  assert.ok(screens.includes('target="_blank" rel="noopener noreferrer"'));
+  assert.ok(screens.includes('aria-label="Sobre o vídeo de apoio"'));
+  assert.ok(!screens.includes('<iframe'));
+  assert.ok(!headers.includes('unsafe-inline'));
+});
+
+test('preview: ingredientes traduzem unidades do contrato e respeitam singular/plural', () => {
+  const { formatIngredient } = loadComponent('frontend/ingredient-format.ts');
+  assert.equal(formatIngredient({ quantity: 1, unit: 'unit', name: 'Ovos' }), '1 unidade de Ovos');
+  assert.equal(formatIngredient({ quantity: 2, unit: 'unit', name: 'ovos' }), '2 unidades de ovos');
+  assert.equal(formatIngredient({ quantity: 1, unit: 'tablespoon', name: 'azeite' }), '1 colher de sopa de azeite');
+  assert.equal(formatIngredient({ quantity: 1.5, unit: 'cup', name: 'leite' }), '1,5 xícaras de leite');
+  assert.equal(formatIngredient({ quantity: 100, unit: 'g', name: 'arroz' }), '100 g de arroz');
+});
+
+test('preview: despensa só sugere ingredientes após consentimento e não cria afordância vazia', () => {
+  const page = readFileSync(resolve(root, 'public/index.html'), 'utf8');
+  const app = readFileSync(resolve(root, 'public/app.js'), 'utf8');
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  assert.ok(page.includes('id="pantry-ingredient-suggestions"') && page.includes('hidden aria-live="polite"'));
+  assert.ok(page.includes('Da sua despensa'));
+  assert.ok(screens.includes('personalization.pantry') && screens.includes('refeicao:pantry-suggestions'));
+  assert.ok(app.includes('section.hidden = items.length === 0'));
+  assert.ok(app.includes("button.dataset.suggestTarget = 'ingredients'"));
+  assert.ok(app.includes("target.dispatchEvent(new Event('input', { bubbles: true }))"));
+});
+
+test('preview: cada receita deixa claro que passos e tempo exigem conferência humana', () => {
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  const guidance = 'Sugestão de preparo: confira se a sequência, o tempo e o cozimento fazem sentido para os ingredientes antes de começar.';
+  assert.ok(screens.includes('recipe-guidance'));
+  assert.ok(screens.includes(guidance));
+  assert.ok(screens.indexOf(guidance) < screens.indexOf('className="recipe-steps"'));
 });
 
 test('preview: animações têm variante de movimento reduzido e CSP mantém scripts locais', () => {

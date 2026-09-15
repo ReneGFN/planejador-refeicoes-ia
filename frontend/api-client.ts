@@ -31,6 +31,7 @@ export type MealRecord = { id: string; description: string; eaten_at: string; se
 export type PantryRecord = { id: string; name: string; quantity?: number; unit?: string; expires_at?: string; revision: number };
 export type PreferencesRecord = { version: 1; use_history: boolean; use_pantry?: boolean; defaults: Record<string, unknown> };
 export type PlanRecord = { id: string; request: { mode: "cook" | "ready" }; data: { mode: "cook" | "ready"; suggestions: Array<Record<string, unknown>> } };
+export type VideoSupport = { version: 1; status: "found" | "not_found" | "unavailable" | "disabled"; video: { id: string; title: string; channel_title: string } | null; notice: { title: string; text: string }; search: { query: string; url: string }; message: string };
 
 export const api = {
   meals: {
@@ -52,6 +53,8 @@ export const api = {
     list: async () => (await request("/api/plans")).data as PlanRecord[],
     remove: async (id: string) => request(`/api/plans/${id}`, { method: "DELETE" }),
   },
+  video: async (selection: { plan_id: string; side: "cook" | "ready"; suggestion_index: number }) =>
+    (await request("/api/video", { method: "POST", body: JSON.stringify({ version: 1, ...selection }) })).data as VideoSupport,
   analyze: async (file: File) => {
     const form = new FormData(); form.append("image", file);
     return (await request("/api/analyze-ingredients", { method: "POST", body: form })).data as { version: 1; status: "recognized" | "no_ingredients" | "unreadable"; ingredients: string[] };

@@ -7,11 +7,12 @@ import { PantryPreview, PersonalizationPreview, type PantryEntry } from "@/compo
 import { DiaryIcon } from "@/components/ui/diary-icon";
 import { QuickSuggestions } from "@/components/ui/quick-suggestions";
 import { api, ApiError, type MealRecord, type PantryRecord } from "./api-client";
-import { Sparkles } from "lucide-react";
+import { formatIngredient } from "./ingredient-format";
+import { Info, Sparkles } from "lucide-react";
 import { WeeklyShareCard } from "@/components/ui/weekly-share-card";
 
-type Route = "inicio" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao";
-const routes: Route[] = ["inicio", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao"];
+type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao";
+const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao"];
 const currentRoute = () => routes.includes(location.hash.slice(1) as Route) ? location.hash.slice(1) as Route : "inicio";
 const go = (route: Route) => { location.hash = route; };
 const openPlanner = () => document.dispatchEvent(new CustomEvent("refeicao:open-planner"));
@@ -23,10 +24,36 @@ const startWith = (meal: string) => {
 interface Entry { id: string; title: string; note: string; eatenAt?: string; remote?: boolean }
 interface Suggestion { title: string; description?: string; servings?: number; total_minutes?: number; ingredients?: { quantity: string | number; unit: string; name: string }[]; steps?: string[] }
 interface Plan { id: string; suggestion: Suggestion; planId?: string; mode?: "cook" | "ready"; suggestionIndex?: number }
+type SuggestionMeta = Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number };
 
 function Empty({ icon, children }: { icon: keyof typeof I; children: ReactNode }) {
   const Icon = I[icon];
   return <div className="preview-empty"><span className="empty-icon"><Icon /></span><p>{children}</p></div>;
+}
+function VideoSupportBlock({ suggestion }: { suggestion: SuggestionMeta }) {
+  const [open, setOpen] = useState(false);
+  const [support, setSupport] = useState<Awaited<ReturnType<typeof api.video>> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
+  const supportId = `video-support-${suggestion.__planId ?? suggestion.title.replace(/\W/gu, "")}-${suggestion.__index ?? 0}`;
+  async function reveal() {
+    const next = !open; setOpen(next);
+    if (!next || support || loading || unavailable || !suggestion.__planId || !suggestion.__mode || suggestion.__index === undefined) return;
+    setLoading(true);
+    try { setSupport(await api.video({ plan_id: suggestion.__planId, side: suggestion.__mode, suggestion_index: suggestion.__index })); }
+    catch { setUnavailable(true); }
+    finally { setLoading(false); }
+  }
+  if (!suggestion.__planId || !suggestion.__mode || suggestion.__index === undefined) return null;
+  return <section className="video-support" aria-labelledby={`${supportId}-heading`}>
+    <div className="video-support-head"><div><h3 id={`${supportId}-heading`}>Vídeo de apoio</h3><p>Abra uma busca de tutorial no YouTube.</p></div><button type="button" className="icon pressable video-info" aria-label="Sobre o vídeo de apoio" aria-expanded={open} aria-controls={supportId} onClick={reveal}><Info size={17} /></button></div>
+    <button type="button" className="text-action video-support-toggle" aria-expanded={open} aria-controls={supportId} onClick={reveal}>{open ? "Ocultar apoio em vídeo" : "Ver apoio em vídeo"}<I.chevDown /></button>
+    {open && <div id={supportId} className="video-support-body" role="status" aria-live="polite">
+      {loading && <p>Carregando apoio em vídeo…</p>}
+      {support && <><p className="preview-notice"><I.warnIcon />{support.notice.text}</p><p className="video-origin">YouTube</p><a className="button secondary pressable video-search-link" href={support.search.url} target="_blank" rel="noopener noreferrer"><I.link />Buscar no YouTube<span className="visually-hidden">: abre uma nova aba no YouTube</span></a></>}
+      {unavailable && <p className="video-unavailable">O apoio em vídeo não está disponível agora. Sua receita continua disponível.</p>}
+    </div>}
+  </section>;
 }
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return <section className="preview-card"><h2 className="preview-card-label">{title}</h2>{children}</section>;
@@ -89,7 +116,7 @@ export function PreviewScreens() {
   const initialRoute = useRef(true);
 
   useEffect(() => {
-    const update = () => { setRoute(currentRoute()); setModal(null); setRemove(null); setMessage(""); const sheet = document.getElementById("meal-sheet"); if (sheet && !sheet.hidden) document.getElementById("close")?.click(); };
+    const update = () => { setRoute(currentRoute()); setModal(null); setRemove(null); setMessage(""); };
     const results = (e: Event) => { const detail = (e as CustomEvent<{items: Suggestion[]; planId: string | null; mode: "cook" | "ready"}>).detail; if (!Array.isArray(detail?.items)) return; setSuggestions(detail.items.map((item, index) => ({ ...item, __planId: detail.planId, __mode: detail.mode, __index: index }))); go("resultado"); };
     const failure = (e: Event) => { const text = (e as CustomEvent<string>).detail; if (typeof text === "string") setErrors(prev => [...prev.slice(-9), text]); };
     window.addEventListener("hashchange", update);
@@ -111,6 +138,12 @@ export function PreviewScreens() {
     document.addEventListener("refeicao:local-message", local);
     return () => { active = false; document.removeEventListener("refeicao:local-message", local); };
   }, []);
+  useEffect(() => {
+    const items = personalization.pantry
+      ? [...new Set(pantry.map(item => item.name.trim()).filter(Boolean))]
+      : [];
+    document.dispatchEvent(new CustomEvent("refeicao:pantry-suggestions", { detail: { items } }));
+  }, [pantry, personalization.pantry]);
   useEffect(() => {
     if (initialRoute.current) { initialRoute.current = false; return; }
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -175,10 +208,12 @@ export function PreviewScreens() {
       {route === "erros" && <><Back title="Erros do sistema" /><p className="copy">Mensagens das solicitações feitas nesta sessão.</p>{errors.length ? errors.map((error,i)=><div key={i} className="preview-notice error-notice"><I.alert /><p>{error}</p></div>) : <Empty icon="alert">Nenhum erro registrado nesta sessão</Empty>}</>}
       {route === "resultado" && <><Back title="Sugestões para você" />{!suggestions.length && <Empty icon="plan">Nenhuma sugestão recebida ainda</Empty>}
         {suggestions.map((s, i) => <article className="preview-result" key={i}><h2>{s.title}</h2><p className="result-meta"><I.people size={15} />{s.servings ?? "—"} pessoas {s.total_minutes && <><I.clock size={15} />{s.total_minutes} min</>}</p>{s.description && <p>{s.description}</p>}
-          {s.ingredients && <ul>{s.ingredients.map((ingredient,j)=><li key={j}>{ingredient.quantity} {ingredient.unit} de {ingredient.name}</li>)}</ul>}
+          {s.ingredients && <ul>{s.ingredients.map((ingredient,j)=><li key={j}>{formatIngredient(ingredient)}</li>)}</ul>}
+          {s.steps && <p className="preview-notice recipe-guidance"><I.warnIcon />Sugestão de preparo: confira se a sequência, o tempo e o cozimento fazem sentido para os ingredientes antes de começar.</p>}
           {s.steps && <div className="recipe-steps">{s.steps.map((step,j)=><p key={j}>{step}</p>)}</div>}
           {s.steps && (!s.steps.length || /^\s*(?:[2-9]|[1-9]\d+)\s*[.)]/.test(s.steps[0])) && <p className="preview-notice"><I.warnIcon />Confira a sequência: ela parece incompleta.</p>}
-          <div className="preview-actions"><button className="button secondary pressable" onClick={async () => { const meta = s as Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number }; if (!meta.__planId) { setMessage("Salve e sincronize o plano antes de registrar o consumo."); return; } try { await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode, suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) }).then(async response => { if (!response.ok) throw Error((await response.json().catch(()=>({}))).message || "Não foi possível registrar."); }); const fresh = await api.meals.list(); setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setMessage("Refeição registrada no diário."); } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); } }}><I.check />Comi isso</button><button className="button primary pressable" disabled={plans.some(p=>p.suggestion===s)} onClick={() => { const meta = s as Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number }; setPlans(prev=>[...prev,{id:crypto.randomUUID(),suggestion:s,planId:meta.__planId,mode:meta.__mode,suggestionIndex:meta.__index}]); setMessage("Sugestão salva."); }}><I.save />{plans.some(p=>p.suggestion===s) ? "Salvo" : "Salvar sugestão"}</button></div>
+          <div className="preview-actions"><button className="button secondary pressable" onClick={async () => { const meta = s as SuggestionMeta; if (!meta.__planId) { setMessage("Salve e sincronize o plano antes de registrar o consumo."); return; } try { await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode, suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) }).then(async response => { if (!response.ok) throw Error((await response.json().catch(()=>({}))).message || "Não foi possível registrar."); }); const fresh = await api.meals.list(); setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setMessage("Refeição registrada no diário."); } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); } }}><I.check />Comi isso</button><button className="button primary pressable" disabled={plans.some(p=>p.suggestion===s)} onClick={() => { const meta = s as SuggestionMeta; setPlans(prev=>[...prev,{id:crypto.randomUUID(),suggestion:s,planId:meta.__planId,mode:meta.__mode,suggestionIndex:meta.__index}]); setMessage("Sugestão salva."); }}><I.save />{plans.some(p=>p.suggestion===s) ? "Salvo" : "Salvar sugestão"}</button></div>
+          <VideoSupportBlock suggestion={s as SuggestionMeta} />
         </article>)}
       </>}
       {message && <p role="status" className="local-feedback"><I.check />{message}</p>}
