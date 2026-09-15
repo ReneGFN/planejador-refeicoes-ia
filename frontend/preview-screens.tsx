@@ -168,10 +168,13 @@ export function PreviewScreens() {
     const action = `consume:${meta.__planId}:${meta.__mode}:${meta.__index}`;
     if (!startAction(action)) return;
     try {
+      // O relógio do navegador pode estar alguns milissegundos à frente do Worker.
+      // Uma margem curta mantém o consumo como "agora" sem ser recusado como futuro.
+      const eatenAt = new Date(Date.now() - 60_000).toISOString();
       const response = await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode,
-          suggestion_index: meta.__index, eaten_at: new Date().toISOString(), confirmed_consumed: true }) });
+          suggestion_index: meta.__index, eaten_at: eatenAt, confirmed_consumed: true }) });
       const body = await response.json().catch(() => ({}));
       if (response.status === 409 && body.code === "DUPLICATE_REQUEST" && body.already_registered === true) {
         setMessage("Esta opção já está registrada no diário.");
