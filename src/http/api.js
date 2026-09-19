@@ -18,6 +18,7 @@ import { generateWithGroq } from '../providers/groq.js';
 import { calculateComparison } from '../comparison/calculate.js';
 import { analyzeImageWithGroq } from '../providers/groq-vision.js';
 import { ProviderError, validateProviderOptions } from '../providers/groq-client.js';
+import { observeContractFailure } from './contract-observability.js';
 
 const ERRORS = {
   PROVIDER_REDIRECT_REJECTED: [503, 'O serviço está temporariamente indisponível.', 'SERVICE_UNAVAILABLE'],
@@ -56,6 +57,7 @@ export const jsonResponse = (data, status = 200, extra = {}) => Response.json(da
   status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...extra },
 });
 function failure(error, reserved = false) {
+  observeContractFailure(error, 'api');
   const known = error instanceof SessionError || error instanceof QuotaError || error instanceof HttpInputError || error instanceof ProviderError || error instanceof ImageContractError;
   const proposed = error instanceof ContractError && !(error instanceof ImageContractError) ? 'INVALID_INPUT' : known ? error.code : '';
   const code = Object.hasOwn(ERRORS, proposed) ? proposed : 'SERVICE_UNAVAILABLE';

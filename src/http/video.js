@@ -6,6 +6,7 @@ import { validateVideoSelection, videoReply } from '../contracts/video-request.j
 import { selectedVideoTitle } from '../video/selection.js';
 import { getSupportVideo } from '../video/service.js';
 import { videoWindows } from '../security/video-quota.js';
+import { observeContractFailure } from './contract-observability.js';
 
 const ERRORS = Object.freeze({
   ORIGIN_FORBIDDEN: [403, 'Abra o aplicativo pelo endereço original e tente novamente.'],
@@ -22,6 +23,7 @@ const ERRORS = Object.freeze({
 const json = (data, status = 200) => Response.json(data, { status,
   headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 function failure(error) {
+  observeContractFailure(error, 'video');
   const known = error instanceof SessionError || error instanceof QuotaError || error instanceof HttpInputError;
   const proposed = error instanceof ContractError ? 'INVALID_INPUT' : known ? error.code : '';
   const code = Object.hasOwn(ERRORS, proposed) ? proposed : 'SERVICE_UNAVAILABLE';
