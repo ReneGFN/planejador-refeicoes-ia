@@ -13,7 +13,7 @@ Projeto de portfólio desenvolvido por Renê Guimarães, com frontend React/Type
 ## Demonstração
 
 <p align="center">
-  <a href="https://planejador-refeicoes-ia.pages.dev/demonstracao"><strong>Abrir o tour interativo das telas</strong></a>
+  <a href="https://planejador-refeicoes-ia.pages.dev/demonstracao/"><strong>Abrir o tour interativo das telas</strong></a>
   &nbsp;·&nbsp;
   <a href="public/demo/refeicao-facil-demo.webm"><strong>Assistir ao vídeo vertical</strong></a>
 </p>

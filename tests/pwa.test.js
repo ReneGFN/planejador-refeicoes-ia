@@ -30,9 +30,13 @@ test("public demo has a stable path outside the regular PWA navigation", async (
   const redirects = await readFile(new URL("../public/_redirects", import.meta.url), "utf8");
   const screens = await readFile(new URL("../frontend/preview-screens.tsx", import.meta.url), "utf8");
   const navigation = await readFile(new URL("../frontend/navigation.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   assert.match(redirects, /^\/demonstracao\s+\/index\.html\s+200\s*$/m);
   assert.ok(screens.includes('(location.pathname ?? "").replace(/\\/+$/u, "") === "/demonstracao"'));
   assert.ok(!navigation.includes('href: "/demonstracao"'));
+  for (const asset of ["/theme-init.js", "/styles.css", "/ui/navigation.css", "/app.js", "/ui/navigation.js"]) assert.ok(page.includes(asset));
+  assert.ok(readme.includes("https://planejador-refeicoes-ia.pages.dev/demonstracao/"));
 });
 
 test("install invitation calls the captured browser prompt exactly once", async () => {
