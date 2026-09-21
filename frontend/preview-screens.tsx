@@ -16,7 +16,10 @@ import { createActionLock } from "./action-lock.js";
 
 type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao" | "demonstracao";
 const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao", "demonstracao"];
-const currentRoute = () => routes.includes(location.hash.slice(1) as Route) ? location.hash.slice(1) as Route : "inicio";
+const currentRoute = () => {
+  if ((location.pathname ?? "").replace(/\/+$/u, "") === "/demonstracao") return "demonstracao";
+  return routes.includes(location.hash.slice(1) as Route) ? location.hash.slice(1) as Route : "inicio";
+};
 const LOCAL_PANTRY_KEY = "refeicao-facil:local-pantry";
 const readLocalPantry = (): PantryEntry[] => {
   if (typeof localStorage === "undefined") return [];
