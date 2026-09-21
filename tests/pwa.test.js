@@ -26,6 +26,15 @@ test("page links the manifest and reserves the PWA status control", async () => 
   assert.match(source, /id="pwa-status"/);
 });
 
+test("public demo has a stable path outside the regular PWA navigation", async () => {
+  const redirects = await readFile(new URL("../public/_redirects", import.meta.url), "utf8");
+  const screens = await readFile(new URL("../frontend/preview-screens.tsx", import.meta.url), "utf8");
+  const navigation = await readFile(new URL("../frontend/navigation.tsx", import.meta.url), "utf8");
+  assert.match(redirects, /^\/demonstracao\s+\/index\.html\s+200\s*$/m);
+  assert.ok(screens.includes('(location.pathname ?? "").replace(/\\/+$/u, "") === "/demonstracao"'));
+  assert.ok(!navigation.includes('href: "/demonstracao"'));
+});
+
 test("install invitation calls the captured browser prompt exactly once", async () => {
   const source = await readFile(new URL("../components/ui/pwa-status.tsx", import.meta.url), "utf8");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022,
