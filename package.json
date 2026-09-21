@@ -16,6 +16,8 @@
     "test": "node --test",
     "test:integration": "node scripts/check-api-runtime.mjs",
     "measure:images": "node scripts/measure-image-path.mjs",
+    "demo:capture": "node scripts/capture-demo.mjs",
+    "demo:video": "node scripts/build-demo-video.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "build": "npm run build:ui && npm run check && wrangler pages functions build --outdir .build"
   },

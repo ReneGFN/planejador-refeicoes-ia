@@ -11,10 +11,11 @@ import { formatIngredient } from "./ingredient-format";
 import { Info, Sparkles } from "lucide-react";
 import { WeeklyShareCard } from "@/components/ui/weekly-share-card";
 import { MealRating } from "@/components/ui/meal-rating";
+import PhoneMockupBasic from "@/components/ui/phone-mockups-1";
 import { createActionLock } from "./action-lock.js";
 
-type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao";
-const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao"];
+type Route = "inicio" | "pedido" | "planos" | "compras" | "foto" | "diario" | "erros" | "config" | "resultado" | "despensa" | "personalizacao" | "demonstracao";
+const routes: Route[] = ["inicio", "pedido", "planos", "compras", "foto", "diario", "erros", "config", "resultado", "despensa", "personalizacao", "demonstracao"];
 const currentRoute = () => routes.includes(location.hash.slice(1) as Route) ? location.hash.slice(1) as Route : "inicio";
 const LOCAL_PANTRY_KEY = "refeicao-facil:local-pantry";
 const readLocalPantry = (): PantryEntry[] => {
@@ -185,6 +186,11 @@ export function PreviewScreens() {
   const initialRoute = useRef(true);
   const actionLock = useRef(createActionLock());
 
+  useEffect(() => {
+    document.body.classList.toggle("demo-route", route === "demonstracao");
+    return () => document.body.classList.remove("demo-route");
+  }, [route]);
+
   const startAction = (key: string) => {
     if (!actionLock.current.start(key)) return false;
     setPendingActions(previous => new Set(previous).add(key));
@@ -321,6 +327,7 @@ export function PreviewScreens() {
         <Card title="Lista de compras">{shopping.length ? <a className="summary-link" href="#compras"><I.cart />{shopping.length} itens nesta sessão<I.chevDown /></a> : <Empty icon="cart">Lista vazia</Empty>}</Card>
         <p className="preview-footnote"><I.clock size={14} />Sua cota será verificada ao confirmar o pedido.</p>
       </>}
+      {route === "demonstracao" && <PhoneMockupBasic />}
       {(route === "compras" || route === "despensa") && <nav className="shopping-segments" aria-label="Compras e despensa"><a href="#compras" aria-current={route === "compras" ? "page" : undefined}>Lista de compras</a><a href="#despensa" aria-current={route === "despensa" ? "page" : undefined}>Despensa</a></nav>}
       {route === "despensa" && <><h1 className="visually-hidden" tabIndex={-1}>Despensa</h1><PantryPreview items={pantry} connected={connected} onChange={setPantry} /></>}
       {route === "personalizacao" && <><button className="text-action preview-back pressable" onClick={() => go("config")}><I.chevLeft />Voltar</button><p className="eyebrow">Preferências</p><h1 tabIndex={-1}>Personalização</h1><PersonalizationPreview value={personalization} connected={connected} onChange={async next => { setPersonalization(next); try { await api.preferences.save(next); setConnected(true); setMessage("Preferências salvas."); } catch (e) { setMessage(e instanceof Error ? e.message : "Preferência mantida localmente."); } }} /></>}

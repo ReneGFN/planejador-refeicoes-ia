@@ -10,6 +10,34 @@ O Refeição Fácil é um PWA de planejamento de refeições que transforma temp
 
 Projeto de portfólio desenvolvido por Renê Guimarães, com frontend React/TypeScript e backend serverless na Cloudflare.
 
+## Demonstração
+
+<p align="center">
+  <a href="https://planejador-refeicoes-ia.pages.dev/#demonstracao"><strong>Abrir o tour interativo das telas</strong></a>
+  &nbsp;·&nbsp;
+  <a href="public/demo/refeicao-facil-demo.webm"><strong>Assistir ao vídeo vertical</strong></a>
+</p>
+
+<table>
+  <tr>
+    <td align="center"><img src="public/demo/screens/01-inicio.png" alt="Tela inicial do Refeição Fácil" width="250"><br><strong>Início</strong></td>
+    <td align="center"><img src="public/demo/screens/02-pedido.png" alt="Pedido guiado do Refeição Fácil" width="250"><br><strong>Pedido guiado</strong></td>
+    <td align="center"><img src="public/demo/screens/03-resultado.png" alt="Sugestão de refeição gerada" width="250"><br><strong>Sugestões por IA</strong></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="public/demo/screens/04-planos.png" alt="Plano de refeição salvo" width="250"><br><strong>Planos completos</strong></td>
+    <td align="center"><img src="public/demo/screens/05-foto.png" alt="Fluxo de ingredientes por foto" width="250"><br><strong>Ingredientes por foto</strong></td>
+    <td align="center"><img src="public/demo/screens/06-diario.png" alt="Diário de refeições" width="250"><br><strong>Diário</strong></td>
+  </tr>
+</table>
+
+As onze capturas móveis ficam em [`public/demo/screens`](public/demo/screens). Elas foram geradas numa sessão isolada, com conteúdo fictício e sem dados pessoais. O carrossel reutilizável está em [`components/ui/phone-mockups-1.tsx`](components/ui/phone-mockups-1.tsx); para atualizar imagens e vídeo depois de mudanças visuais, execute:
+
+```sh
+npm run demo:capture
+npm run demo:video
+```
+
 ## Estado do projeto
 
 O fluxo principal está publicado e funcional em produção:
