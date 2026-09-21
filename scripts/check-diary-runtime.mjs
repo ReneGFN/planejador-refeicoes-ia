@@ -31,7 +31,7 @@ export async function checkDiaryRuntime({ db, send, session, scenario, calls, po
     return (await replay.json()).replay.plan.id;
   };
   const select = (plan_id, side = 'cook') => ({ version: 1, source: 'plan_suggestion', plan_id, side,
-    suggestion_index: 0, eaten_at: new Date(Date.now() - 1000).toISOString(), confirmed_consumed: true });
+    suggestion_index: 0, confirmed_consumed: true });
 
   await scenario('diário: manual/delivery retroativo, leitura e edição/exclusão sem chave ou cota de IA', async () => {
     const cookie = await session(), id = await create(cookie);

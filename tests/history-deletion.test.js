@@ -68,8 +68,7 @@ async function setup(t) {
     const plan = await savePlan(env, owner, 'a'.repeat(64), cook, result);
     const mealKey = crypto.randomUUID(), pantryKey = crypto.randomUUID();
     const item = await mutatePantry(env, owner, 'create', null, pantry, pantryKey);
-    const mealBody = { ...manual(), source: 'plan_suggestion', plan_id: plan, side: 'cook', suggestion_index: 0, servings_consumed: 1 };
-    delete mealBody.description;
+    const mealBody = { version: 1, source: 'plan_suggestion', plan_id: plan, side: 'cook', suggestion_index: 0, confirmed_consumed: true, servings_consumed: 1 };
     const meal = await mutateMeal(env, owner, 'create', null, mealBody, mealKey);
     return { plan, meal: meal.data.id, item: item.data.id, mealKey, pantryKey, mealBody };
   };

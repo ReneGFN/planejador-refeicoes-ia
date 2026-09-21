@@ -44,11 +44,16 @@ function servings(raw) {
   return { servings_consumed: value };
 }
 export function validateMealCreate(raw, options) {
-  const common = ['version', 'source', 'eaten_at', 'confirmed_consumed', 'servings_consumed'];
-  object(raw, raw?.source === 'manual' ? [...common, 'description']
+  const common = ['version', 'source', 'confirmed_consumed', 'servings_consumed'];
+  const isManual = raw?.source === 'manual';
+  object(raw, isManual ? [...common, 'description', 'eaten_at']
     : [...common, 'plan_id', 'side', 'suggestion_index']);
   if (raw.confirmed_consumed !== true) invalid('confirmed_consumed', 'confirme explicitamente que consumiu');
-  const result = { version: 1, source: raw.source, eaten_at: mealDate(raw.eaten_at, options), ...servings(raw) };
+  // Uma confirmação "Comi isso" representa o instante em que o servidor a recebeu.
+  // A data manual continua explícita para permitir registros retroativos.
+  const now = options?.now ?? Date.now();
+  const result = { version: 1, source: raw.source,
+    eaten_at: isManual ? mealDate(raw.eaten_at, { now }) : new Date(now).toISOString(), ...servings(raw) };
   if (raw.source === 'manual') return { ...result, description: description(raw.description) };
   if (raw.source !== 'plan_suggestion') invalid('source');
   if (!['cook', 'ready'].includes(raw.side)) invalid('side');

@@ -146,7 +146,8 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(screens.includes('await refreshPlans()'));
   assert.ok(screens.includes('!plan.mealLog && plan.planId'));
   assert.ok(screens.includes('"Comi isso"'));
-  assert.ok(screens.includes('const eatenAt = new Date(Date.now() - 60_000).toISOString()'));
+  assert.ok(screens.includes('source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode'));
+  assert.ok(!screens.includes('const eatenAt = new Date(Date.now() - 60_000).toISOString()'));
   assert.ok(screens.indexOf('await api.meals.rate') < screens.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
 });

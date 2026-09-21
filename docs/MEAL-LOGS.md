@@ -36,7 +36,7 @@ Exemplo de corpo manual, com dados fictícios:
 }
 ```
 
-Para sugestão, substituir source por plan_suggestion e description por plan_id, side e suggestion_index; manter version, eaten_at, confirmed_consumed e, somente se informado, servings_consumed. Não enviar visitor_id, snapshot ou steps. Campos desconhecidos são rejeitados.
+Para sugestão, substituir source por plan_suggestion e description por plan_id, side e suggestion_index; manter version, confirmed_consumed e, somente se informado, servings_consumed. O servidor grava eaten_at no instante da confirmação e usa esse dia UTC para a idempotência; o cliente não envia esse campo. Não enviar visitor_id, snapshot ou steps. Campos desconhecidos são rejeitados. Registros manuais continuam exigindo eaten_at explícito para permitir lançamentos retroativos.
 
 O ID do plano vem do replay já existente: repetir o pedido original válido e sua chave em /api/generate retorna 409 com replay.plan.id, sem nova IA ou reserva de geração, ainda sujeito a ingress. Os testes de integração usam esse caminho. **O 200 da geração não ganhou plan_id**, preservando o contrato congelado. A etapa 4 terá de conservar a chave/pedido original e tratar esse replay para confirmar uma sugestão. Não existe listagem geral de planos neste item.
 

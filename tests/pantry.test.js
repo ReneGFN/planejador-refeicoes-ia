@@ -91,7 +91,7 @@ async function setup(t) {
     const plan = await savePlan(env, owner, crypto.randomUUID().replaceAll('-', '').repeat(2), input, { data,
       metadata: { model: 'openai/gpt-oss-20b', elapsed_ms: 1, usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2, reasoning_tokens: null } } });
     const raw = { version: 1, source: 'plan_suggestion', plan_id: plan, side: mode === 'ready' ? 'ready' : 'cook',
-      suggestion_index: 0, confirmed_consumed: true, eaten_at: new Date(Date.now() - 1000).toISOString(),
+      suggestion_index: 0, confirmed_consumed: true,
       ...(servings_consumed === null ? {} : { servings_consumed }) };
     return (await mutateMeal(env, owner, 'create', null, raw, crypto.randomUUID())).data.id;
   };

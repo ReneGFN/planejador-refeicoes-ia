@@ -19,7 +19,7 @@ export async function checkDeletionRuntime({ db, send, session, scenario, calls,
     const pantryKey = crypto.randomUUID();
     assert.equal((await send('/pantry', { cookie, key: pantryKey, body: item, overrides: enabled })).status, 201);
     const mealKey = crypto.randomUUID(), mealBody = { version: 1, source: 'plan_suggestion', plan_id: plan.id,
-      side: 'cook', suggestion_index: 0, servings_consumed: 1, confirmed_consumed: true, eaten_at: new Date(Date.now() - 1000).toISOString() };
+      side: 'cook', suggestion_index: 0, servings_consumed: 1, confirmed_consumed: true };
     assert.equal((await send('/meal-logs', { cookie, key: mealKey, body: mealBody, overrides: enabled })).status, 201);
     return { key, plan: plan.id, pantryKey, mealKey, mealBody };
   };

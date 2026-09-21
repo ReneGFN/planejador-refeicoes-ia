@@ -95,7 +95,7 @@ async function setup(t) {
       model: 'openai/gpt-oss-20b', elapsed_ms: 1, usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2, reasoning_tokens: null } } });
   };
   const selected = (plan_id, side = 'cook', patch = {}) => ({ version: 1, source: 'plan_suggestion', plan_id,
-    side, suggestion_index: 0, eaten_at: new Date(Date.now() - 1000).toISOString(), confirmed_consumed: true, ...patch });
+    side, suggestion_index: 0, confirmed_consumed: true, ...patch });
   return { ...a, DB, env, policy, handlers, request, session, send, create, plan, selected, calls: () => calls,
     count: table => DB.sqlite.prepare('SELECT COUNT(*) AS n FROM ' + table).get().n };
 }
@@ -104,6 +104,10 @@ test('diário contrato: confirmação explícita, campos fechados e limites sem 
   assert.equal(validateMealCreate(manual()).description, manual().description);
   assert.equal(validateMealCreate(manual({ description: '😀'.repeat(400), servings_consumed: 0.5 })).servings_consumed, 0.5);
   assert.equal(Object.hasOwn(validateMealCreate(manual()), 'servings_consumed'), false);
+  const serverNow = Date.parse('2026-09-12T12:00:00Z');
+  const selected = { version: 1, source: 'plan_suggestion', plan_id: crypto.randomUUID(), side: 'cook', suggestion_index: 0, confirmed_consumed: true };
+  assert.equal(validateMealCreate(selected, { now: serverNow }).eaten_at, '2026-09-12T12:00:00.000Z');
+  assert.throws(() => validateMealCreate({ ...selected, eaten_at: '2099-01-01T00:00:00Z' }, { now: serverNow }));
   for (const value of [null, {}, manual({ confirmed_consumed: false }), manual({ confirmed_consumed: 'true' }),
     manual({ description: '' }), manual({ description: 'a'.repeat(401) }), manual({ visitor_id: crypto.randomUUID() }),
     manual({ photo: 'foto' }), manual({ steps: [] }), manual({ use_history: true }), manual({ version: 2 }),
@@ -191,24 +195,20 @@ test('diário idempotência: reenvio 409, conteúdo diferente não altera ação
   const stored = h.DB.sqlite.prepare('SELECT action_key FROM meal_log_mutations LIMIT 1').get().action_key;
   assert.match(stored, /^[0-9a-f]{64}$/u); assert.equal(stored.includes(key), false);
 });
-test('diário seleção: servidor colapsa chaves diferentes para a mesma opção no mesmo dia UTC', async t => {
+test('diário seleção: servidor fixa data e chave; relógio do cliente não muda a virada UTC', async t => {
   const h = await setup(t), plan = await h.plan();
-  const eaten = '2026-01-10T19:00:00-03:00';
-  const first = await h.send({ body: h.selected(plan, 'cook', { eaten_at: eaten }), key: crypto.randomUUID() });
-  assert.equal(first.status, 201);
-  const repeated = await h.send({ body: h.selected(plan, 'cook', { eaten_at: eaten }), key: crypto.randomUUID() });
-  assert.equal(repeated.status, 409);
-  assert.deepEqual(await repeated.json(), {
-    code: 'DUPLICATE_REQUEST',
-    message: 'Este pedido já foi recebido. Não será feita outra chamada à IA.',
-    quotaReserved: false,
-    receipt: { operation: 'create', meal_log_id: (await first.json()).data.id },
-    already_registered: true,
-    note: 'Esta opção já está registrada no diário.',
-  });
-  assert.equal(h.count('meal_logs'), 1); assert.equal(h.count('meal_log_mutations'), 1);
-  const anotherDay = await h.send({ body: h.selected(plan, 'cook', { eaten_at: '2026-01-11T19:00:00-03:00' }), key: crypto.randomUUID() });
-  assert.equal(anotherDay.status, 201); assert.equal(h.count('meal_logs'), 2);
+  const midnight = (Math.floor(Date.now() / 86400000) + 1) * 86400000;
+  const beforeMidnight = midnight - 1000, afterMidnight = midnight + 1;
+  const selected = h.selected(plan);
+  assert.equal(Object.hasOwn(selected, 'eaten_at'), false);
+  // Mesmo que o relógio do cliente esteja horas ou dias errado, ele não viaja no corpo.
+  const first = await mutateMeal(h.env, h.visitor, 'create', null, selected, crypto.randomUUID(), { now: beforeMidnight });
+  const firstValue = await getMeal(h.env, h.visitor, first.data.id, { now: afterMidnight });
+  assert.equal(firstValue.eaten_at, new Date(beforeMidnight).toISOString());
+  const repeated = await mutateMeal(h.env, h.visitor, 'create', null, selected, crypto.randomUUID(), { now: beforeMidnight + 500 });
+  assert.equal(repeated.duplicate, true); assert.equal(repeated.alreadyRegistered, true);
+  const anotherDay = await mutateMeal(h.env, h.visitor, 'create', null, selected, crypto.randomUUID(), { now: afterMidnight });
+  assert.equal(anotherDay.duplicate, false); assert.equal(h.count('meal_logs'), 2);
 });
 test('diário edição: substitui campos editáveis, preserva origem/instantâneo e reenvio não desfaz edição posterior', async t => {
   const h = await setup(t), plan = await h.plan(), id = await h.create(h.selected(plan, 'cook', { servings_consumed: 0.5 }));

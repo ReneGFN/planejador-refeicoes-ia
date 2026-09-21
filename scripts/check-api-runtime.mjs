@@ -542,12 +542,12 @@ try {
     const plan = await db.prepare('SELECT id FROM plans LIMIT 1').first();
     const response = await send('/meal-logs', { cookie, overrides: { DIARY_ENABLED: 'true' }, body: {
       version: 1, source: 'plan_suggestion', plan_id: plan.id, side: 'cook', suggestion_index: 0,
-      eaten_at: new Date(Date.now() - 60_000).toISOString(), confirmed_consumed: true,
+      confirmed_consumed: true,
     } });
     // Criação de recurso devolve 201; 200 no enunciado seria um falso negativo deste arnês.
     assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
   });
-  await scenario('diário: erro de contrato mantém resposta pública genérica', async () => {
+  await scenario('diário: data manual futura mantém resposta pública genérica', async () => {
     const cookie = await session();
     const generated = await send('/generate', { cookie, body: {
       mode: 'cook', meal: 'jantar', people: 2, time_minutes: 20, ingredient_policy: 'suggest', ingredients: [],
@@ -555,8 +555,7 @@ try {
     assert.equal(generated.status, 200);
     const plan = await db.prepare('SELECT id FROM plans LIMIT 1').first();
     const response = await send('/meal-logs', { cookie, overrides: { DIARY_ENABLED: 'true' }, body: {
-      version: 1, source: 'plan_suggestion', plan_id: plan.id, side: 'cook', suggestion_index: 0,
-      eaten_at: new Date(Date.now() + 60_000).toISOString(), confirmed_consumed: true,
+      version: 1, source: 'manual', description: 'Jantar', eaten_at: new Date(Date.now() + 60_000).toISOString(), confirmed_consumed: true,
     } });
     assert.equal(response.status, 400);
     assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Confira os campos do pedido.', quotaReserved: false });

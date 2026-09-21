@@ -33,7 +33,7 @@ export async function checkPantryRuntime({ db, send, session, scenario, calls, p
     const plan = (await replay.json()).replay.plan;
     const saved = await send('/meal-logs', { cookie, overrides: enabled, body: { version: 1, source: 'plan_suggestion',
       plan_id: plan.id, side: mode === 'ready' ? 'ready' : 'cook', suggestion_index: 0,
-      servings_consumed: 1, eaten_at: new Date(Date.now() - 1000).toISOString(), confirmed_consumed: true } });
+      servings_consumed: 1, confirmed_consumed: true } });
     assert.equal(saved.status, 201);
     return (await saved.json()).data.id;
   };
