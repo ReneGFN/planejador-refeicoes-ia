@@ -124,8 +124,8 @@ test('preferências: flags desligadas bloqueiam; operação não depende de chav
   assert.equal((await onRequestGet({ env: {} })).status, 503);
   assert.equal((await onRequestPut({ env: {} })).status, 503);
   const config = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
-  assert.equal((config.match(/"PERSONALIZATION_ENABLED": "false"/gu) ?? []).length, 2);
-  assert.equal((config.match(/"PERSONALIZATION_ENABLED": "true"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"PERSONALIZATION_ENABLED": "false"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"PERSONALIZATION_ENABLED": "true"/gu) ?? []).length, 2);
   assert.equal(h.state.sent.length, 0);
 });
 

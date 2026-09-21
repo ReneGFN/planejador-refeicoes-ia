@@ -75,14 +75,14 @@ async function setup(t) {
   return { DB, env, state, handlers, request, session, a, b, erase, generate, count, rows, seed, policy };
 }
 
-test('exclusão: confirmação explícita, corpo fechado e habilitação somente em preview', async () => {
+test('exclusão: confirmação explícita, corpo fechado e habilitação em preview e produção', async () => {
   assert.deepEqual(validateHistoryDeletion(confirmation), confirmation);
   for (const body of [null, [], {}, { version: 2, confirmed: true }, { version: 1, confirmed: 'true' },
     { ...confirmation, visitor_id: 'outro' }, { ...confirmation, history_revision: 0 }]) assert.throws(() => validateHistoryDeletion(body));
   assert.equal((await onRequestDelete({ env: {} })).status, 503);
   const config = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
-  assert.equal((config.match(/"HISTORY_DELETION_ENABLED": "false"/gu) ?? []).length, 2);
-  assert.equal((config.match(/"HISTORY_DELETION_ENABLED": "true"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"HISTORY_DELETION_ENABLED": "false"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"HISTORY_DELETION_ENABLED": "true"/gu) ?? []).length, 2);
 });
 
 test('exclusão pura: remove quatro produtos, preserva todos os recibos/cotas e outro dono byte a byte', async t => {

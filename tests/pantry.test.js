@@ -191,7 +191,7 @@ test('despensa: isolamento de lista/leitura/escrita/exclusão e mesma chave entr
   assert.equal((await h.send({ cookie: b.cookie, body: item({ visitor_id: h.visitor.visitorId }) })).status, 400);
   await h.create(item(), { cookie: b.cookie, key }); assert.equal(h.count('pantry_items'), 2);
 });
-test('despensa: flags publicáveis desligadas, sessão/origem/chave/corpo obrigatórios, nenhuma cota de IA', async t => {
+test('despensa: configuração publicável explícita, sessão/origem/chave/corpo obrigatórios, nenhuma cota de IA', async t => {
   const h = await setup(t);
   assert.equal((await h.send({ body: item(), cookie: '' })).status, 401);
   assert.equal((await h.send({ body: item(), key: '' })).status, 400);
@@ -207,8 +207,8 @@ test('despensa: flags publicáveis desligadas, sessão/origem/chave/corpo obriga
     assert.equal((await fn({ env: {} })).status, 503);
   }
   const config = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
-  assert.equal((config.match(/"PANTRY_ENABLED": "false"/gu) ?? []).length, 2);
-  assert.equal((config.match(/"PANTRY_ENABLED": "true"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"PANTRY_ENABLED": "false"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"PANTRY_ENABLED": "true"/gu) ?? []).length, 2);
   assert.equal(h.calls(), 0); assert.equal(h.count('preferences'), 0);
   assert.equal(h.DB.sqlite.prepare("SELECT COUNT(*) AS n FROM usage_reservations WHERE operation IN ('generation','vision')").get().n, 0);
 });

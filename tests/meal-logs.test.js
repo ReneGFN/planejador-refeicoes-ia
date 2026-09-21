@@ -327,8 +327,8 @@ test('diário HTTP: sem sessão, origem, métodos, corpo, chave e flags; não re
   assert.equal((await h.send({ method: 'GET' })).status, 503);
   for (const fn of [...Object.values(collectionRoute), ...Object.values(recordRoute)]) assert.equal((await fn({ env: {} })).status, 503);
   const config = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
-  assert.equal((config.match(/"DIARY_ENABLED": "false"/gu) ?? []).length, 2);
-  assert.equal((config.match(/"DIARY_ENABLED": "true"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"DIARY_ENABLED": "false"/gu) ?? []).length, 1);
+  assert.equal((config.match(/"DIARY_ENABLED": "true"/gu) ?? []).length, 2);
   assert.equal(h.calls(), 0);
 });
 test('diário paginação: limite 20/50, cursor fechado, empates estáveis, isolamento e sem lista ilimitada', async t => {
