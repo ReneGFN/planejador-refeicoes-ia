@@ -4,9 +4,10 @@ const generationClient = createGenerationClient();
 const $ = id => document.getElementById(id);
 const screen = $('meal-screen'), form = $('form'), content = $('app-content');
 const bar = $('active-order-bar'), progress = $('active-order-progress');
-const fields = ['meal', 'people', 'budget', 'time', 'policy', 'ingredients', 'preferences'];
+const fields = ['meal', 'people', 'budget', 'time', 'policy', 'ingredients', 'preferences', 'hourly-rate'];
 const state = { step: 0, returnHash: '#inicio', draft: JSON.parse(localStorage.getItem('refeicao-facil:draft') || '{}') };
 const toast = message => { const el = $('toast'); el.textContent = message; el.hidden = !message; clearTimeout(toast.timer); if (message) toast.timer = setTimeout(() => { el.hidden = true; }, 6000); };
+const selectedMode = () => form.querySelector('[name=mode]:checked')?.value || 'cook';
 
 function syncSuggestions() {
   document.querySelectorAll('[data-suggest-target]').forEach(button => {
@@ -29,6 +30,12 @@ function addBudget(button) {
   const current = Number($('budget').value) || 0;
   $('budget').value = Math.min(current + increment, 100000).toFixed(2);
   $('budget').dispatchEvent(new Event('input', { bubbles: true })); $('budget').focus();
+}
+function setHourlyValue(button) {
+  const increment = Number(button.dataset.hourlyValue);
+  const current = Number($('hourly-rate').value) || 0;
+  $('hourly-rate').value = Math.min(current + increment, 100000).toFixed(2);
+  $('hourly-rate').dispatchEvent(new Event('input', { bubbles: true })); $('hourly-rate').focus();
 }
 function normalizePeople() {
   const people = $('people'), value = Number(people.value);
@@ -60,43 +67,50 @@ function renderPantrySuggestions(rawItems) {
 function hasDraft() { return Boolean($('meal').value.trim() || $('ingredients').value.trim() || $('preferences').value.trim() || $('budget').value.trim()); }
 function updateOrderBar() {
   const ingredients = $('ingredients').value.split(',').map(value => value.trim()).filter(Boolean).length;
-  const last = $('mode').checked ? 2 : 3;
+  const last = selectedMode() === 'ready' ? 2 : 3;
   progress.textContent = ingredients ? `${ingredients} ingrediente${ingredients === 1 ? '' : 's'} · passo ${state.step + 1} de ${last + 1}` : `passo ${state.step + 1} de ${last + 1}`;
   bar.hidden = location.hash === '#pedido' || !hasDraft();
   document.body.classList.toggle('has-active-order', !bar.hidden);
 }
 function save() {
   const draft = Object.fromEntries(fields.map(id => [id, $(id).value]));
-  draft.mode = $('mode').checked ? 'ready' : 'cook'; draft.equipment = [...form.querySelectorAll('[name=equipment]:checked')].map(input => input.value);
+  draft.mode = selectedMode(); draft.equipment = [...form.querySelectorAll('[name=equipment]:checked')].map(input => input.value);
   localStorage.setItem('refeicao-facil:draft', JSON.stringify(draft)); syncSuggestions(); updateOrderBar();
 }
 function restore() {
   const draft = state.draft;
   fields.forEach(id => { if (draft[id] !== undefined) $(id).value = draft[id]; });
-  $('mode').checked = draft.mode === 'ready'; form.querySelectorAll('[name=equipment]').forEach(input => { input.checked = draft.equipment?.includes(input.value); });
+  const savedMode = form.querySelector(`[name=mode][value="${draft.mode}"]`); if (savedMode) savedMode.checked = true;
+  form.querySelectorAll('[name=equipment]').forEach(input => { input.checked = draft.equipment?.includes(input.value); });
   normalizePeople();
 }
 function render() {
-  const ready = $('mode').checked, last = ready ? 2 : 3;
+  const ready = selectedMode() === 'ready', last = ready ? 2 : 3;
   state.step = Math.min(state.step, last);
   document.querySelectorAll('.question[data-q]').forEach(question => { const index = Number(question.dataset.q); question.classList.toggle('current', index === state.step || (ready && index === 3 && state.step === 2)); });
   [...document.querySelectorAll('.progress-step')].filter(item => !item.hidden).forEach((item, index) => { if (index === state.step) item.setAttribute('aria-current', 'step'); else item.removeAttribute('aria-current'); });
   $('back').hidden = state.step === 0; $('next').hidden = state.step === last; $('generate').hidden = state.step !== last; updateOrderBar();
 }
 function mode() {
-  const ready = $('mode').checked;
-  $('mode-label').textContent = ready ? 'Comida pronta' : 'Cozinhar'; $('mode-desc').textContent = ready ? 'Receba termos para procurar uma opção.' : 'Use o que você tem ou peça sugestões.';
-  document.querySelector('.mode-row').dataset.mode = ready ? 'ready' : 'cook'; document.querySelectorAll('[data-cook-step], [data-cook], .expanded-only').forEach(item => { item.hidden = ready; }); save(); render();
+  const current = selectedMode(), ready = current === 'ready', compare = current === 'compare';
+  const copy = compare ? ['Comparar', 'Veja cozinhar e pedir pronto lado a lado.'] : ready ? ['Pedir pronto', 'Receba termos para procurar uma opção.'] : ['Cozinhar', 'Use o que você tem ou peça sugestões.'];
+  $('mode-label').textContent = copy[0]; $('mode-desc').textContent = copy[1];
+  document.querySelector('.mode-picker').dataset.mode = current;
+  document.querySelector('.mode-row').dataset.mode = current;
+  document.querySelectorAll('[data-cook-step], [data-cook], .expanded-only').forEach(item => { item.hidden = ready; });
+  document.querySelectorAll('.compare-only').forEach(item => { item.hidden = !compare; });
+  save(); render();
 }
 function error() {
   if (state.step === 0 && !$('meal').value.trim()) return 'Conte o que você quer comer hoje.';
-  if (!$('mode').checked && state.step === 2 && $('policy').value === 'only_available' && !$('ingredients').value.trim()) return 'Liste ao menos um ingrediente para usar somente o que você tem.';
+  if (selectedMode() !== 'ready' && state.step === 2 && $('policy').value === 'only_available' && !$('ingredients').value.trim()) return 'Liste ao menos um ingrediente para usar somente o que você tem.';
   return '';
 }
 function request() {
-  const ready = $('mode').checked, value = id => $(id).value.trim(), out = { mode: ready ? 'ready' : 'cook', meal: value('meal'), people: Number(value('people')) };
+  const current = selectedMode(), ready = current === 'ready', value = id => $(id).value.trim(), out = { mode: current, meal: value('meal'), people: Number(value('people')) };
   if (value('budget')) out.budget_brl = Number(value('budget')); if (value('preferences')) out.preferences = value('preferences');
   if (!ready) { const ingredients = value('ingredients').split(',').map(item => item.trim()).filter(Boolean); out.time_minutes = Number(value('time')); out.ingredient_policy = ingredients.length ? value('policy') : 'suggest'; out.ingredients = out.ingredient_policy === 'suggest' ? [] : ingredients; const equipment = [...form.querySelectorAll('[name=equipment]:checked')].map(input => input.value); if (equipment.length) out.equipment = equipment; }
+  if (current === 'compare' && value('hourly-rate')) out.hourly_rate_brl = Number(value('hourly-rate'));
   return out;
 }
 function leavePlanner() { save(); const destination = state.returnHash && state.returnHash !== '#pedido' ? state.returnHash : '#inicio'; if (location.hash === '#pedido') location.hash = destination; }
@@ -105,11 +119,20 @@ function hidePlanner() { screen.hidden = true; content.hidden = false; document.
 function syncRoute() { if (location.hash === '#pedido') showPlanner(); else hidePlanner(); }
 function openPlanner() { if (location.hash !== '#pedido') { state.returnHash = location.hash && location.hash !== '#pedido' ? location.hash : '#inicio'; location.hash = 'pedido'; } else showPlanner(); }
 function clearOrder() { form.reset(); normalizePeople(); localStorage.removeItem('refeicao-facil:draft'); state.draft = {}; state.step = 0; mode(); $('status').hidden = true; toast('Pedido limpo.'); updateOrderBar(); }
+function completeOrder() { form.reset(); normalizePeople(); localStorage.removeItem('refeicao-facil:draft'); state.draft = {}; state.step = 0; mode(); $('status').hidden = true; updateOrderBar(); }
 function syncKeyboard() { const focused = document.activeElement, fieldFocused = focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement || focused instanceof HTMLSelectElement; document.body.classList.toggle('planner-keyboard-open', !screen.hidden && fieldFocused && screen.contains(focused)); }
 async function send() {
   const message = error(); if (message) { $('status').textContent = message; $('status').hidden = false; return; } if (!navigator.onLine) { toast('Você está offline. Reconecte-se para gerar novas sugestões.'); return; }
   $('status').hidden = true; save(); form.classList.add('loading'); form.setAttribute('aria-busy', 'true'); $('generate').disabled = true;
-  try { const data = await generationClient.generate(request()); if (data.replayed) toast('Pedido recuperado com segurança.'); const items = data?.data?.suggestions || []; if (!items.length) { toast('A resposta não trouxe sugestões utilizáveis.'); return; } document.dispatchEvent(new CustomEvent('refeicao:results-ready', { detail: { items, planId: data.plan_id || null, mode: data.data.mode } })); }
+  try {
+    const data = await generationClient.generate(request()); if (data.replayed) toast('Pedido recuperado com segurança.');
+    const result = data?.data;
+    const hasSuggestions = result?.mode === 'compare'
+      ? result.cook?.status === 'suggested' || result.ready?.status === 'suggested'
+      : Array.isArray(result?.suggestions) && result.suggestions.length;
+    if (!hasSuggestions) { toast('A resposta não trouxe sugestões utilizáveis.'); return; }
+    document.dispatchEvent(new CustomEvent('refeicao:results-ready', { detail: { data: result, comparison: data.comparison || null, planId: data.plan_id || null } }));
+  }
   catch (exception) { toast(exception.message); document.dispatchEvent(new CustomEvent('refeicao:request-error', { detail: { message: exception.message, code: exception.code, retryable: Boolean(exception.retryable) } })); }
   finally { form.classList.remove('loading'); form.removeAttribute('aria-busy'); $('generate').disabled = false; }
 }
@@ -117,7 +140,8 @@ async function send() {
 restore(); mode(); syncRoute();
 document.querySelectorAll('[data-suggest-target]').forEach(button => button.addEventListener('click', () => selectSuggestion(button)));
 document.querySelectorAll('[data-budget-increment]').forEach(button => button.addEventListener('click', () => addBudget(button)));
+document.querySelectorAll('[data-hourly-value]').forEach(button => button.addEventListener('click', () => setHourlyValue(button)));
 $('people-decrement').addEventListener('click', () => changePeople(-1)); $('people-increment').addEventListener('click', () => changePeople(1)); $('people').addEventListener('change', normalizePeople);
-fields.forEach(id => $(id).addEventListener('input', () => { if (id === 'people') updatePeopleControls(); save(); })); form.querySelectorAll('[name=equipment]').forEach(input => input.addEventListener('change', save)); $('mode').addEventListener('change', mode); $('policy').addEventListener('change', () => { $('ingredients-field').hidden = $('policy').value === 'suggest'; save(); });
+fields.forEach(id => $(id).addEventListener('input', () => { if (id === 'people') updatePeopleControls(); save(); })); form.querySelectorAll('[name=equipment]').forEach(input => input.addEventListener('change', save)); form.querySelectorAll('[name=mode]').forEach(input => input.addEventListener('change', mode)); $('policy').addEventListener('change', () => { $('ingredients-field').hidden = $('policy').value === 'suggest'; save(); });
 $('next').onclick = () => { const message = error(); if (message) { $('status').textContent = message; $('status').hidden = false; return; } $('status').hidden = true; state.step++; render(); }; $('back').onclick = () => { state.step--; render(); }; $('generate').onclick = send; $('toggle').onclick = leavePlanner; $('close').onclick = leavePlanner; $('clear').onclick = clearOrder; $('resume-order').onclick = openPlanner; $('clear-order').onclick = clearOrder;
-document.querySelectorAll('[data-open]').forEach(trigger => { trigger.onclick = openPlanner; }); document.addEventListener('refeicao:open-planner', openPlanner); document.addEventListener('refeicao:pantry-suggestions', event => renderPantrySuggestions(event.detail?.items)); window.addEventListener('hashchange', syncRoute); document.addEventListener('focusin', syncKeyboard); document.addEventListener('focusout', () => window.setTimeout(syncKeyboard, 0));
+document.querySelectorAll('[data-open]').forEach(trigger => { trigger.onclick = openPlanner; }); document.addEventListener('refeicao:open-planner', openPlanner); document.addEventListener('refeicao:complete-order', completeOrder); document.addEventListener('refeicao:pantry-suggestions', event => renderPantrySuggestions(event.detail?.items)); window.addEventListener('hashchange', syncRoute); document.addEventListener('focusin', syncKeyboard); document.addEventListener('focusout', () => window.setTimeout(syncKeyboard, 0));

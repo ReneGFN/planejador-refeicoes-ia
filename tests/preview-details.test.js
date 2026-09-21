@@ -64,6 +64,13 @@ test('preview: rotas restauradas começam vazias e informam sincronização', ()
   }
 });
 
+test('preview: foco programático do título não desenha contorno, sem remover foco dos controles', () => {
+  const css = readFileSync(resolve(root, 'frontend/styles.css'), 'utf8');
+  assert.ok(css.includes('.preview-screen h1[tabindex="-1"]:focus { outline: none; box-shadow: none; }'));
+  assert.ok(css.includes('.expandable-tab:focus-visible { outline: 2px solid var(--color-focus);'));
+  assert.ok(!css.includes('button:focus { outline: none'));
+});
+
 test('preview: foto explica envio, limita arquivo e exige revisão', () => {
   const { PreviewScreens } = loadComponent('frontend/preview-screens.tsx', '#foto');
   const html = renderToStaticMarkup(React.createElement(PreviewScreens));
@@ -230,6 +237,41 @@ test('planejador: campos móveis ficam alinhados e tempo chega a duas horas', ()
   assert.ok(details.includes('#form .field-grid > .field > .label'));
   assert.ok(details.includes('min-height: 2.5rem'));
   assert.ok(details.includes('#form .number-stepper { width: 100%; max-width: none; }'));
+});
+
+test('planejador: comparar é uma terceira escolha, envia uma geração e separa os dois lados', () => {
+  const page = readFileSync(resolve(root, 'public/index.html'), 'utf8');
+  const app = readFileSync(resolve(root, 'public/app.js'), 'utf8');
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  assert.equal((page.match(/name="mode"/g) ?? []).length, 3);
+  for (const mode of ['cook', 'ready', 'compare']) assert.ok(page.includes(`name="mode" value="${mode}"`));
+  assert.ok(page.includes('Quanto vale uma hora do seu tempo?'));
+  assert.ok(page.includes('Não inclui ingredientes nem taxa de entrega.'));
+  assert.ok(page.includes('class="mode-lamp"'));
+  assert.equal((page.match(/data-hourly-value=/g) ?? []).length, 3);
+  for (const value of [15, 30, 50]) assert.ok(page.includes(`data-hourly-value="${value}"`));
+  assert.ok(page.includes('É o limite para todas as pessoas, tanto ao cozinhar quanto ao pedir.'));
+  assert.ok(app.includes('function setHourlyValue(button)'));
+  assert.ok(app.includes("$('hourly-rate').value = Math.min(current + increment, 100000).toFixed(2)"));
+  assert.ok(app.includes("if (current === 'compare' && value('hourly-rate')) out.hourly_rate_brl"));
+  assert.equal((app.match(/generationClient\.generate\(request\(\)\)/g) ?? []).length, 1);
+  assert.ok(app.includes("result?.mode === 'compare'"));
+  assert.ok(screens.includes('detail.data.cook.suggestions.forEach'));
+  assert.ok(screens.includes('detail.data.ready.suggestions.forEach'));
+  assert.ok(screens.includes('Comparação para você'));
+  assert.ok(screens.includes('Preço estimado'));
+  assert.ok(screens.includes('Valor estimado do seu tempo'));
+});
+
+test('planejador: consumir resultado atual encerra o pedido sem apagar rascunho ao consumir plano antigo', () => {
+  const app = readFileSync(resolve(root, 'public/app.js'), 'utf8');
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  assert.ok(app.includes("document.addEventListener('refeicao:complete-order', completeOrder)"));
+  assert.ok(app.includes("localStorage.removeItem('refeicao-facil:draft')"));
+  assert.ok(screens.includes('__fromCurrentResult?: boolean'));
+  assert.ok(screens.includes('if (meta.__fromCurrentResult) document.dispatchEvent(new CustomEvent("refeicao:complete-order"))'));
+  assert.ok(screens.includes('__fromCurrentResult: true'));
+  assert.ok(!screens.includes('suggestion: { ...(suggestion as unknown as Suggestion), __fromCurrentResult: true'));
 });
 
 test('preview: apoio em vídeo usa a rota autorizada, aviso contratual e link externo seguro', () => {
