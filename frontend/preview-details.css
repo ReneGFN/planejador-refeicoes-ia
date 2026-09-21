@@ -65,8 +65,10 @@
 .mode-row { position: relative; }
 .mode-icon { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--color-action) 10%, var(--color-surface)); color: var(--color-action); box-shadow: 0 0 0 3px var(--glow-green), 6px 3px 18px var(--glow-gold); }
 .mode-copy { flex: 1; min-width: 0; }
-.mode-icon > span { display: grid; place-items: center; }
-.mode-row[data-mode="cook"] #mode-ready-icon, .mode-row[data-mode="ready"] #mode-cook-icon { display: none; }
+.mode-icon > span { display: none; place-items: center; }
+.mode-row[data-mode="cook"] #mode-cook-icon,
+.mode-row[data-mode="ready"] #mode-ready-icon,
+.mode-row[data-mode="compare"] #mode-compare-icon { display: grid; }
 .progress { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 18px 0 22px; isolation: isolate; }
 .progress:before { position: absolute; z-index: -1; top: 6px; left: 11%; right: 11%; height: 2px; background: var(--color-divider); content: ""; }
 .progress-step { display: grid; justify-items: center; gap: 7px; color: var(--color-muted); font-size: 10px; font-weight: 650; text-align: center; }

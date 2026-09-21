@@ -32,10 +32,14 @@ const startWith = (meal: string) => {
   openPlanner();
 };
 interface Entry { id: string; title: string; note: string; eatenAt?: string; remote?: boolean }
-interface Suggestion { title: string; description?: string; servings?: number; total_minutes?: number; ingredients?: { quantity: string | number; unit: string; name: string }[]; steps?: string[] }
+interface MoneyEstimate { value: number; origin?: string }
+interface Suggestion { title: string; description?: string; servings?: number; total_minutes?: number; ingredients?: { quantity: string | number; unit: string; name: string }[]; steps?: string[]; search_term?: string; estimated_price_brl?: MoneyEstimate }
 interface PlanMeal { id: string; rating: number | null }
 interface Plan { id: string; suggestion: Suggestion; planId?: string; mode?: "cook" | "ready"; suggestionIndex?: number; mealLog?: PlanMeal }
-type SuggestionMeta = Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number };
+type SuggestionMeta = Suggestion & { __planId?: string; __mode?: "cook" | "ready"; __index?: number; __timeCost?: MoneyEstimate; __fromCurrentResult?: boolean };
+type ComparisonSide = { status: "suggested"; suggestions: Suggestion[] } | { status: "not_suggested"; reason: string };
+interface ComparisonSummary { cook?: { alternatives?: Array<{ time_cost_brl?: MoneyEstimate & { status?: string } }> }; partial_comparison?: { notice?: string } }
+interface ResultsDetail { planId: string | null; comparison?: ComparisonSummary | null; data: { mode: "cook" | "ready"; suggestions: Suggestion[] } | { mode: "compare"; cook: ComparisonSide; ready: ComparisonSide } }
 
 function mealForSuggestion(meals: Array<{ id: string; side: "cook" | "ready"; suggestion_index: number; rating: number | null }>, side: "cook" | "ready", index: number) {
   const matches = meals.filter(meal => meal.side === side && meal.suggestion_index === index);
@@ -166,6 +170,9 @@ export function PreviewScreens() {
   const [personalization, setPersonalization] = useState({ history: false, pantry: false });
   const [plans, setPlans] = useState<Plan[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [resultMode, setResultMode] = useState<"cook" | "ready" | "compare">("cook");
+  const [comparisonNote, setComparisonNote] = useState("");
+  const [unavailableSides, setUnavailableSides] = useState<string[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [modal, setModal] = useState<{ kind: "diario" | "compras"; entry?: Entry } | null>(null);
   const [remove, setRemove] = useState<{ kind: "diario" | "compras" | "planos"; id: string; title: string } | null>(null);
@@ -201,6 +208,7 @@ export function PreviewScreens() {
       const cardId = `${meta.__planId}:${meta.__index}`;
       if (state.plan_meal_log) setPlans(previous => upsertConsumedPlan(previous, meta,
         { id: state.plan_meal_log!.id, rating: state.plan_meal_log!.rating }));
+      if (meta.__fromCurrentResult) document.dispatchEvent(new CustomEvent("refeicao:complete-order"));
       setOpenedPlanId(cardId);
       setMessage("Refeição registrada no diário.");
       go("planos");
@@ -210,7 +218,25 @@ export function PreviewScreens() {
 
   useEffect(() => {
     const update = () => { setRoute(currentRoute()); setModal(null); setRemove(null); setMessage(""); };
-    const results = (e: Event) => { const detail = (e as CustomEvent<{items: Suggestion[]; planId: string | null; mode: "cook" | "ready"}>).detail; if (!Array.isArray(detail?.items)) return; setSuggestions(detail.items.map((item, index) => ({ ...item, __planId: detail.planId, __mode: detail.mode, __index: index }))); go("resultado"); };
+    const results = (e: Event) => {
+      const detail = (e as CustomEvent<ResultsDetail>).detail;
+      if (!detail?.data) return;
+      setResultMode(detail.data.mode);
+      if (detail.data.mode !== "compare") {
+        setSuggestions(detail.data.suggestions.map((item, index) => ({ ...item, __planId: detail.planId || undefined, __mode: detail.data.mode, __index: index, __fromCurrentResult: true })));
+        setComparisonNote(""); setUnavailableSides([]);
+      } else {
+        const items: SuggestionMeta[] = [];
+        const unavailable: string[] = [];
+        if (detail.data.cook.status === "suggested") detail.data.cook.suggestions.forEach((item, index) => items.push({ ...item, __planId: detail.planId || undefined, __mode: "cook", __index: index, __timeCost: detail.comparison?.cook?.alternatives?.[index]?.time_cost_brl, __fromCurrentResult: true }));
+        else unavailable.push(`Cozinhar: ${detail.data.cook.reason}`);
+        if (detail.data.ready.status === "suggested") detail.data.ready.suggestions.forEach((item, index) => items.push({ ...item, __planId: detail.planId || undefined, __mode: "ready", __index: index, __fromCurrentResult: true }));
+        else unavailable.push(`Pedir pronto: ${detail.data.ready.reason}`);
+        setSuggestions(items); setUnavailableSides(unavailable);
+        setComparisonNote(detail.comparison?.partial_comparison?.notice || "Estimativa parcial: o tempo de preparo pode ser comparado ao preço informado, sem incluir ingredientes e taxas de entrega.");
+      }
+      go("resultado");
+    };
     const failure = (e: Event) => { const text = (e as CustomEvent<string>).detail; if (typeof text === "string") setErrors(prev => [...prev.slice(-9), text]); };
     window.addEventListener("hashchange", update);
     document.addEventListener("refeicao:results-ready", results);
@@ -330,8 +356,14 @@ export function PreviewScreens() {
       {route === "foto" && <PhotoScreen />}
       {route === "config" && <><Back title="Configurações" /><Card title="Preferências"><a className="summary-link" href="#personalizacao"><I.settings /><span>Personalização</span><I.chevLeft className="icon-forward" /></a></Card><Card title="Aparência"><div className="settings-row"><span>Usar tema escuro</span><ThemeToggle /></div></Card><p className="copy">A escolha de tema fica salva neste navegador. As demais preferências de conta ainda não estão conectadas.</p></>}
       {route === "erros" && <><Back title="Erros do sistema" /><p className="copy">Mensagens das solicitações feitas nesta sessão.</p>{errors.length ? errors.map((error,i)=><div key={i} className="preview-notice error-notice"><I.alert /><p>{error}</p></div>) : <Empty icon="alert">Nenhum erro registrado nesta sessão</Empty>}</>}
-      {route === "resultado" && <><Back title="Sugestões para você" />{!suggestions.length && <Empty icon="plan">Nenhuma sugestão recebida ainda</Empty>}
-        {suggestions.map((s, i) => <article className="preview-result" key={i}><h2>{s.title}</h2><p className="result-meta"><I.people size={15} />{s.servings ?? "—"} pessoas {s.total_minutes && <><I.clock size={15} />{s.total_minutes} min</>}</p>{s.description && <p>{s.description}</p>}
+      {route === "resultado" && <><Back title={resultMode === "compare" ? "Comparação para você" : "Sugestões para você"} />{!suggestions.length && <Empty icon="plan">Nenhuma sugestão recebida ainda</Empty>}
+        {resultMode === "compare" && comparisonNote && <p className="preview-notice compare-notice"><Info size={18} />{comparisonNote}</p>}
+        {unavailableSides.map(message => <p key={message} className="preview-notice"><I.alert />{message}</p>)}
+        {suggestions.map((s, i) => <div className="result-group" key={`${(s as SuggestionMeta).__mode}-${i}`}>
+          {resultMode === "compare" && (i === 0 || (suggestions[i - 1] as SuggestionMeta).__mode !== (s as SuggestionMeta).__mode) && <h2 className="compare-section-title">{(s as SuggestionMeta).__mode === "cook" ? "Cozinhar" : "Pedir pronto"}</h2>}
+          <article className="preview-result"><h2>{s.title}</h2><p className="result-meta"><I.people size={15} />{s.servings ?? "—"} pessoas {s.total_minutes && <><I.clock size={15} />{s.total_minutes} min</>}</p>{s.description && <p>{s.description}</p>}
+          {s.estimated_price_brl && <p className="comparison-metric"><span>Preço estimado</span><strong>{s.estimated_price_brl.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></p>}
+          {(s as SuggestionMeta).__timeCost?.value !== undefined && <p className="comparison-metric"><span>Valor estimado do seu tempo</span><strong>{(s as SuggestionMeta).__timeCost!.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></p>}
           {s.ingredients && <ul>{s.ingredients.map((ingredient,j)=><li key={j}>{formatIngredient(ingredient)}</li>)}</ul>}
           {s.steps && <p className="preview-notice recipe-guidance"><I.warnIcon />Sugestão de preparo: confira se a sequência, o tempo e o cozimento fazem sentido para os ingredientes antes de começar.</p>}
           {s.steps && <div className="recipe-steps">{s.steps.map((step,j)=><p key={j}>{step}</p>)}</div>}
@@ -343,7 +375,7 @@ export function PreviewScreens() {
             return <button className="button secondary pressable" disabled={pending} onClick={() => consumePlanSuggestion(meta)}><I.check />{pending ? "Salvando…" : "Comi isso"}</button>;
           })()}</div>
           <VideoSupportBlock suggestion={s as SuggestionMeta} />
-        </article>)}
+        </article></div>)}
       </>}
       {message && <p role="status" className="local-feedback"><I.check />{message}</p>}
     </div>

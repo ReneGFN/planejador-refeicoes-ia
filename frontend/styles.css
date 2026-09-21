@@ -63,6 +63,46 @@ body.planner-open .shell { display: none; }
 .sheet-head > span { display: flex; flex-wrap: wrap; gap: 8px; }
 #inicio, #planos, #compras { scroll-margin-top: 100px; }
 body { min-width: 0; }
+/* Os títulos recebem foco programático ao trocar de tela para anunciar a navegação.
+   Como não são interativos, não devem herdar o contorno nativo persistente do navegador. */
+.preview-screen h1[tabindex="-1"]:focus { outline: none; box-shadow: none; }
+
+.compare-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  margin-bottom: 1rem;
+}
+.compare-notice svg { flex: 0 0 auto; margin-top: .15rem; }
+.result-group + .result-group { margin-top: 1rem; }
+.compare-section-title {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin: 1.35rem 0 .65rem;
+  color: var(--color-ink);
+  font-size: .82rem;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.compare-section-title::after {
+  height: 1px;
+  flex: 1;
+  background: var(--color-border);
+  content: "";
+}
+.comparison-metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: .8rem 0;
+  padding: .7rem .8rem;
+  border-radius: .8rem;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  font-size: .82rem;
+}
+.comparison-metric strong { color: var(--color-accent-strong, var(--color-ink)); white-space: nowrap; }
 .meal-screen { box-sizing: border-box; min-height: 100dvh; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); background: var(--color-page); color: var(--color-ink); }
 .meal-screen .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; max-width: 460px; margin: 0 auto; }
 .meal-screen .sheet-head h2 { margin: 0; padding: 8px 0; }

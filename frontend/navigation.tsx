@@ -5,7 +5,7 @@ import { PreviewScreens } from "./preview-screens";
 import { ExpandableTabs, type TabItem } from "@/components/ui/expandable-tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PwaStatus } from "@/components/ui/pwa-status";
-import { ShoppingBag, Utensils } from "lucide-react";
+import { Scale, ShoppingBag, Utensils } from "lucide-react";
 import "./styles.css";
 import "./preview-details.css";
 
@@ -65,5 +65,5 @@ const brandRoot = document.getElementById("preview-brand");
 if (brandRoot) createRoot(brandRoot).render(<PreviewLogo />);
 const detailIcons = { "toggle-icon": I.chevUp, "clear-icon": I.trash, "close-icon": I.x, "back-icon": I.chevLeft, "next-icon": I.chevLeft, "generate-icon": I.plan };
 for (const [id, Icon] of Object.entries(detailIcons)) { const element = document.getElementById(id); if (element) createRoot(element).render(<Icon size={16} />); }
-const modeIcons = { "mode-cook-icon": Utensils, "mode-ready-icon": ShoppingBag };
+const modeIcons = { "mode-cook-icon": Utensils, "mode-ready-icon": ShoppingBag, "mode-compare-icon": Scale };
 for (const [id, Icon] of Object.entries(modeIcons)) { const element = document.getElementById(id); if (element) createRoot(element).render(<Icon size={21} strokeWidth={1.9} />); }
