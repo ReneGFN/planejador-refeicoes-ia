@@ -72,7 +72,7 @@ test('health: valida operação e ingress, sem exigir política de outra operaç
     });
   }
   const env = environment(), policy = JSON.parse(env.QUOTA_POLICY_JSON);
-  policy.generation.visitorDay = 5; env.QUOTA_POLICY_JSON = JSON.stringify(policy);
+  policy.generation.visitorDay = 6; env.QUOTA_POLICY_JSON = JSON.stringify(policy);
   assert.equal(apiConfigurationReason(env, 'generation'), 'policy_invalid');
 });
 

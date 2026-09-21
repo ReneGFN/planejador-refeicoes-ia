@@ -167,6 +167,7 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(ratingBlock.indexOf('await api.meals.rate') < ratingBlock.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
   assert.ok(readFileSync(resolve(root, 'wrangler.jsonc'), 'utf8').includes('\\"globalDay\\":60'));
+  assert.ok(readFileSync(resolve(root, 'wrangler.jsonc'), 'utf8').includes('\\"generation\\":{\\"visitorDay\\":5'));
 });
 
 test('preview: menu mantém todos os nomes visíveis abaixo dos ícones', () => {

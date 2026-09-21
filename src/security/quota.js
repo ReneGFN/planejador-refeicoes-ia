@@ -13,7 +13,7 @@ export function quotaPolicy(env, operation) {
     const p = all[operation];
     if (!p || Object.keys(p).length !== FIELDS.length || !FIELDS.every(key => Number.isSafeInteger(p[key]) && p[key] >= 0 && p[key] <= 10_000_000)) throw Error();
     if (FIELDS.filter(key => !['reserveTokens', 'dayTokens', 'minuteTokens'].includes(key)).some(key => p[key] < 1)) throw Error();
-    if (operation === 'generation' && p.visitorDay !== 3) throw Error();
+    if (operation === 'generation' && p.visitorDay > 5) throw Error();
     const ai = ['generation', 'vision'].includes(operation);
     if (ai && (p.reserveTokens < (operation === 'generation' ? 4096 : 1024) || p.dayTokens < p.reserveTokens || p.minuteTokens < p.reserveTokens)) throw Error();
     if (!ai && (p.reserveTokens || p.dayTokens || p.minuteTokens)) throw Error();

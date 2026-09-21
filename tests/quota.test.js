@@ -7,9 +7,10 @@ const policy = { visitorDay: 3, visitorMinute: 2, networkDay: 12, networkMinute:
 const env = { QUOTA_POLICY_JSON: JSON.stringify({ generation: policy }), IP_HASH_SECRET: 'fake-network-test-secret-never-production' };
 const ipRequest = ip => new Request('https://test.example', { headers: ip ? { 'CF-Connecting-IP': ip } : {} });
 
-test('cotas: configuração explícita, três gerações, reservas de tokens e validação estrita', () => {
+test('cotas: configuração explícita, até cinco gerações, reservas de tokens e validação estrita', () => {
   assert.deepEqual(quotaPolicy(env, 'generation'), policy);
-  for (const p of [{ ...policy, visitorDay: 4 }, { ...policy, reserveTokens: 1 }, { ...policy, minuteTokens: 1 },
+  assert.equal(quotaPolicy({ QUOTA_POLICY_JSON: JSON.stringify({ generation: { ...policy, visitorDay: 5 } }) }, 'generation').visitorDay, 5);
+  for (const p of [{ ...policy, visitorDay: 6 }, { ...policy, reserveTokens: 1 }, { ...policy, minuteTokens: 1 },
     { ...policy, globalDay: -1 }, { ...policy, extra: 1 }, { ...policy, globalDay: '80' }, { ...policy, networkDay: 1 }]) {
     assert.throws(() => quotaPolicy({ QUOTA_POLICY_JSON: JSON.stringify({ generation: p }) }, 'generation'), { code: 'QUOTA_CONFIG_ERROR' });
   }
