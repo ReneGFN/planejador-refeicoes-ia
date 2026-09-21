@@ -63,6 +63,10 @@ body.planner-open .shell { display: none; }
 .sheet-head > span { display: flex; flex-wrap: wrap; gap: 8px; }
 #inicio, #planos, #compras { scroll-margin-top: 100px; }
 body { min-width: 0; }
+body.demo-route .meal-navigation,
+body.demo-route .topbar,
+body.demo-route .active-order-bar { display: none !important; }
+body.demo-route #app-content { padding: 0; }
 /* Os títulos recebem foco programático ao trocar de tela para anunciar a navegação.
    Como não são interativos, não devem herdar o contorno nativo persistente do navegador. */
 .preview-screen h1[tabindex="-1"]:focus { outline: none; box-shadow: none; }
@@ -197,4 +201,43 @@ body.planner-keyboard-open .meal-navigation, body.planner-keyboard-open .active-
   .header-actions .icon { width: 32px; }
   .pwa-chip { padding-inline: 10px; font-size: .7rem; }
   .pwa-chip svg { flex: 0 0 auto; }
+}
+
+.phone-showcase {
+  --phone-frame: #08120e;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  padding: 40px 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16% 12%, color-mix(in srgb, var(--color-action) 22%, transparent), transparent 34%),
+    radial-gradient(circle at 86% 74%, color-mix(in srgb, var(--color-warn) 18%, transparent), transparent 32%),
+    var(--color-page);
+}
+.phone-showcase-copy { max-width: 620px; text-align: center; }
+.phone-showcase-copy h1 { margin: 5px 0 8px; font-size: clamp(1.65rem, 5vw, 2.5rem); line-height: 1.05; }
+.phone-showcase-copy p:last-child { margin: 0; color: var(--color-muted); }
+.phone-stage { display: grid; grid-template-columns: 44px minmax(0, 292px) 44px; align-items: center; gap: 12px; }
+.phone-device { position: relative; width: 292px; padding: 10px; border: 1px solid #42564d; border-radius: 43px; background: var(--phone-frame); box-shadow: 0 28px 70px rgb(0 0 0 / 28%), inset 0 0 0 2px rgb(255 255 255 / 6%); }
+.phone-device::after { position: absolute; inset: 4px; border: 1px solid rgb(255 255 255 / 12%); border-radius: 38px; content: ""; pointer-events: none; }
+.phone-speaker { position: absolute; z-index: 3; top: 18px; left: 50%; width: 76px; height: 20px; border-radius: 999px; background: #030604; transform: translateX(-50%); }
+.phone-screen { position: relative; aspect-ratio: 390 / 844; overflow: hidden; border-radius: 34px; background: var(--color-page); }
+.phone-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; user-select: none; }
+.phone-control { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); color: var(--color-ink); cursor: pointer; transition: transform 160ms ease, border-color 160ms ease; }
+.phone-control:hover { border-color: var(--color-action); transform: translateY(-2px); }
+.phone-control:focus-visible, .phone-dots button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.phone-caption { display: flex; width: min(392px, 100%); align-items: center; justify-content: space-between; gap: 16px; }
+.phone-caption span { color: var(--color-muted); font-size: .78rem; }
+.phone-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.phone-dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px; background: var(--color-border); cursor: pointer; transition: width 180ms ease, background 180ms ease; }
+.phone-dots button[aria-selected="true"] { width: 28px; background: var(--color-action); }
+@media (max-width: 420px) {
+  .phone-showcase { padding-inline: 10px; }
+  .phone-stage { grid-template-columns: 34px minmax(0, 252px) 34px; gap: 6px; }
+  .phone-device { width: 252px; border-radius: 37px; }
+  .phone-screen { border-radius: 29px; }
+  .phone-control { width: 34px; height: 34px; }
 }
