@@ -140,15 +140,18 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(screens.includes('{plan.mealLog && <MealRating'));
   assert.ok(!screens.includes('plan.mealLogs?.map'));
   assert.ok(screens.includes('if (!startAction(action)) return'));
-  assert.ok(screens.includes('body.already_registered === true'));
-  assert.ok(screens.includes('Esta opção já está registrada no diário.'));
   assert.ok(screens.includes('const consumePlanSuggestion = async'));
-  assert.ok(screens.includes('await refreshPlans()'));
+  assert.ok(screens.includes('await api.meals.consume'));
+  assert.ok(screens.includes('state.plan_meal_log'));
+  const consumeBlock = screens.slice(screens.indexOf('const consumePlanSuggestion = async'), screens.indexOf('useEffect(() =>', screens.indexOf('const consumePlanSuggestion = async')));
+  assert.ok(!consumeBlock.includes('await api.meals.list()'));
+  assert.ok(!consumeBlock.includes('refreshPlans'));
   assert.ok(screens.includes('!plan.mealLog && plan.planId'));
   assert.ok(screens.includes('"Comi isso"'));
-  assert.ok(screens.includes('source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode'));
+  assert.ok(client.includes('source: "plan_suggestion", ...selection'));
   assert.ok(!screens.includes('const eatenAt = new Date(Date.now() - 60_000).toISOString()'));
-  assert.ok(screens.indexOf('await api.meals.rate') < screens.indexOf('setPlans(previous'));
+  const ratingBlock = screens.slice(screens.indexOf('async function saveRating'), screens.indexOf('const removePlan', screens.indexOf('async function saveRating')));
+  assert.ok(ratingBlock.indexOf('await api.meals.rate') < ratingBlock.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
 });
 

@@ -28,6 +28,7 @@ async function request(path: string, init: RequestInit = {}) {
 }
 
 export type MealRecord = { id: string; description: string; eaten_at: string; servings_consumed?: number; rating?: number | null };
+export type MealCreateState = { id: string; operation: "create"; applied: true; meal: MealRecord; plan_meal_log?: PlanMealLog };
 export type PantryRecord = { id: string; name: string; quantity?: number; unit?: string; expires_at?: string; revision: number };
 export type PreferencesRecord = { version: 1; use_history: boolean; use_pantry?: boolean; defaults: Record<string, unknown> };
 export type PlanMealLog = { id: string; side: "cook" | "ready"; suggestion_index: number; rating: number | null };
@@ -35,9 +36,14 @@ export type PlanRecord = { id: string; request: { mode: "cook" | "ready" }; data
 export type VideoSupport = { version: 1; status: "found" | "not_found" | "unavailable" | "disabled"; video: { id: string; title: string; channel_title: string } | null; notice: { title: string; text: string }; search: { query: string; url: string }; message: string };
 
 export const api = {
+  bootstrap: async () => (await request("/api/bootstrap")).data as {
+    meals: MealRecord[]; pantry: PantryRecord[]; preferences: PreferencesRecord; plans: PlanRecord[];
+  },
   meals: {
     list: async () => (await request("/api/meal-logs?limit=50")).data as MealRecord[],
     create: async (description: string) => request("/api/meal-logs", { method: "POST", body: JSON.stringify({ version: 1, source: "manual", description, eaten_at: new Date().toISOString(), confirmed_consumed: true }) }),
+    consume: async (selection: { plan_id: string; side: "cook" | "ready"; suggestion_index: number }) =>
+      (await request("/api/meal-logs", { method: "POST", body: JSON.stringify({ version: 1, source: "plan_suggestion", ...selection, confirmed_consumed: true }) })).data as MealCreateState,
     update: async (meal: MealRecord, description: string) => request(`/api/meal-logs/${meal.id}`, { method: "PUT", body: JSON.stringify({ version: 1, description, eaten_at: meal.eaten_at, ...(meal.servings_consumed ? { servings_consumed: meal.servings_consumed } : {}) }) }),
     rate: async (id: string, rating: number | null) => request(`/api/meal-logs/${id}`, { method: "PUT", body: JSON.stringify({ version: 1, rating }) }),
     remove: async (id: string) => request(`/api/meal-logs/${id}`, { method: "DELETE", body: JSON.stringify({ version: 1 }) }),

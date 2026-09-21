@@ -159,7 +159,6 @@ export function PreviewScreens() {
     actionLock.current.finish(key);
     setPendingActions(previous => { const next = new Set(previous); next.delete(key); return next; });
   };
-  const refreshPlans = async () => setPlans(planCards(await api.plans.list()));
   const consumePlanSuggestion = async (meta: SuggestionMeta) => {
     if (!meta.__planId || !meta.__mode || meta.__index === undefined) {
       setMessage("Salve e sincronize o plano antes de registrar o consumo.");
@@ -168,22 +167,13 @@ export function PreviewScreens() {
     const action = `consume:${meta.__planId}:${meta.__mode}:${meta.__index}`;
     if (!startAction(action)) return;
     try {
-      const response = await fetch("/api/meal-logs", { method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ version: 1, source: "plan_suggestion", plan_id: meta.__planId, side: meta.__mode,
-          suggestion_index: meta.__index, confirmed_consumed: true }) });
-      const body = await response.json().catch(() => ({}));
-      if (response.status === 409 && body.code === "DUPLICATE_REQUEST" && body.already_registered === true) {
-        setMessage("Esta opção já está registrada no diário.");
-      } else {
-        if (!response.ok) throw Error(body.message || "Não foi possível registrar.");
-        setMessage("Refeição registrada no diário.");
-      }
-      const fresh = await api.meals.list();
-      setDiary(fresh.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true })));
-      // O plano retorna os vínculos de consumo. Recarregá-lo aqui faz a avaliação
-      // aparecer imediatamente, sem exigir que a pessoa recarregue a página.
-      await refreshPlans();
+      const state = await api.meals.consume({ plan_id: meta.__planId, side: meta.__mode, suggestion_index: meta.__index });
+      setDiary(previous => previous.some(item => item.id === state.meal.id) ? previous
+        : [{ id: state.meal.id, title: state.meal.description, note: "", eatenAt: state.meal.eaten_at, remote: true }, ...previous]);
+      if (state.plan_meal_log) setPlans(previous => previous.map(plan => plan.planId === meta.__planId
+        && plan.mode === meta.__mode && plan.suggestionIndex === meta.__index
+        ? { ...plan, mealLog: { id: state.plan_meal_log!.id, rating: state.plan_meal_log!.rating } } : plan));
+      setMessage("Refeição registrada no diário.");
     } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); }
     finally { finishAction(action); }
   };
@@ -199,14 +189,13 @@ export function PreviewScreens() {
   }, []);
   useEffect(() => {
     let active = true;
-    Promise.allSettled([api.meals.list(), api.pantry.list(), api.preferences.get(), api.plans.list()]).then(results => {
+    api.bootstrap().then(data => {
       if (!active) return;
-      const [mealResult, pantryResult, preferencesResult, plansResult] = results;
-      if (mealResult.status === "fulfilled") { setDiary(mealResult.value.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setConnected(true); }
-      if (pantryResult.status === "fulfilled") setPantry(pantryResult.value.map(item => ({ id: item.id, name: item.name, quantity: item.quantity?.toString() || "", unit: item.unit || "", expiry: item.expires_at || "", revision: item.revision, remote: true })));
-      if (preferencesResult.status === "fulfilled") setPersonalization({ history: preferencesResult.value.use_history, pantry: Boolean(preferencesResult.value.use_pantry) });
-      if (plansResult.status === "fulfilled") setPlans(planCards(plansResult.value));
-    });
+      setDiary(data.meals.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true })));
+      setPantry(data.pantry.map(item => ({ id: item.id, name: item.name, quantity: item.quantity?.toString() || "", unit: item.unit || "", expiry: item.expires_at || "", revision: item.revision, remote: true })));
+      setPersonalization({ history: data.preferences.use_history, pantry: Boolean(data.preferences.use_pantry) });
+      setPlans(planCards(data.plans)); setConnected(true);
+    }).catch(() => {});
     const local = (e: Event) => setMessage((e as CustomEvent<string>).detail);
     document.addEventListener("refeicao:local-message", local);
     return () => { active = false; document.removeEventListener("refeicao:local-message", local); };

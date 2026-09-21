@@ -145,6 +145,29 @@ export function apiConfigured(env, operation) {
 
 // Injeção de fetch somente por código de teste; nunca pelo request ou env.
 export function createApiHandlers({ fetchImpl } = {}) {
+  async function bootstrap({ request, env }) {
+    if (env?.SESSIONS_ENABLED !== 'true') return failure(new HttpInputError('NOT_READY'));
+    try {
+      const url = new URL(request.url);
+      if (request.method !== 'GET' || url.protocol !== 'https:' || url.search
+          || (request.headers.has('Origin') && request.headers.get('Origin') !== url.origin)
+          || (request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin')) {
+        throw new HttpInputError('ORIGIN_FORBIDDEN');
+      }
+      checkConfig(env, 'ingress'); await pruneUsage(env);
+      const ingress = await reserveUsage(request, env, 'ingress'); await finishUsage(env, ingress.id, true);
+      const visitor = await requireVisitorSession(request, env);
+      const diaryEnabled = env?.DIARY_ENABLED === 'true';
+      const [meals, pantry, preferences, plans] = await Promise.all([
+        diaryEnabled ? listMeals(env, visitor, { limit: '50' }) : { data: [], next_cursor: null },
+        env?.PANTRY_ENABLED === 'true' ? listPantry(env, visitor) : [],
+        env?.PERSONALIZATION_ENABLED === 'true' ? readPreferences(env, visitor)
+          : { version: 1, use_history: false, use_pantry: false, defaults: {} },
+        listPlans(env, visitor, { includeMealLogs: diaryEnabled }),
+      ]);
+      return jsonResponse({ data: { meals: meals.data, pantry, preferences, plans } });
+    } catch (error) { return failure(error); }
+  }
   async function plans({ request, env, params = {} }) {
     if (env?.SESSIONS_ENABLED !== 'true') return failure(new HttpInputError('NOT_READY'));
     try {
@@ -262,7 +285,13 @@ export function createApiHandlers({ fetchImpl } = {}) {
             note: 'Esta opção já está registrada no diário.' }
             : { note: 'Esta ação não foi repetida. Consulte o diário para ver o estado atual; o registro pode ter sido editado ou excluído.' }) }, status);
       }
-      return jsonResponse({ data: result.data }, operation === 'create' ? 201 : 200);
+      if (operation === 'create') {
+        const meal = await getMeal(env, visitor, result.data.id);
+        return jsonResponse({ data: { ...result.data, meal,
+          ...(meal.source === 'plan_suggestion' ? { plan_meal_log: { id: meal.id, side: meal.side,
+            suggestion_index: meal.suggestion_index, rating: meal.rating } } : {}) } }, 201);
+      }
+      return jsonResponse({ data: result.data });
     } catch (error) { return failure(error); }
   }
   async function preferences({ request, env }) {
@@ -365,5 +394,5 @@ export function createApiHandlers({ fetchImpl } = {}) {
       return failure(error, Boolean(reservation));
     }
   }
-  return { session, history, plans, preferences, mealLogs, pantry, pantryDeduction, generate: context => ai('generation', context), analyze: context => ai('vision', context) };
+  return { session, bootstrap, history, plans, preferences, mealLogs, pantry, pantryDeduction, generate: context => ai('generation', context), analyze: context => ai('vision', context) };
 }

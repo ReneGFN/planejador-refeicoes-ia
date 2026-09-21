@@ -135,6 +135,7 @@ const { outputFiles } = await build({
       if (path === '/meal-logs' || path.startsWith('/meal-logs/')) {
         return handlers.mealLogs({ request, env, params: path === '/meal-logs' ? {} : { id: path.slice('/meal-logs/'.length) } });
       }
+      if (path === '/bootstrap') return handlers.bootstrap({ request, env });
       return path === '/history' ? handlers.history({ request, env })
         : path === '/preferences' ? handlers.preferences({ request, env }) : path === '/session' ? handlers.session({ request, env })
         : path === '/vision' ? handlers.analyze({ request, env }) : handlers.generate({ request, env });
@@ -546,6 +547,20 @@ try {
     } });
     // Criação de recurso devolve 201; 200 no enunciado seria um falso negativo deste arnês.
     assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
+    const created = (await response.json()).data;
+    assert.equal(created.meal.id, created.id); assert.equal(created.meal.plan_id, plan.id);
+    assert.deepEqual(created.plan_meal_log, { id: created.id, side: 'cook', suggestion_index: 0, rating: null });
+  });
+  await scenario('abertura: um bootstrap entrega quatro estados com uma única reserva de ingresso', async () => {
+    const cookie = await session();
+    const before = (await db.prepare("SELECT COUNT(*) n FROM usage_reservations WHERE operation = 'ingress'").first()).n;
+    const response = await send('/bootstrap', { method: 'GET', cookie,
+      overrides: { DIARY_ENABLED: 'true', PANTRY_ENABLED: 'true', PERSONALIZATION_ENABLED: 'true' } });
+    assert.equal(response.status, 200);
+    const data = (await response.json()).data;
+    assert.deepEqual(Object.keys(data).sort(), ['meals', 'pantry', 'plans', 'preferences']);
+    const after = (await db.prepare("SELECT COUNT(*) n FROM usage_reservations WHERE operation = 'ingress'").first()).n;
+    assert.equal(after - before, 1);
   });
   await scenario('diário: data manual futura mantém resposta pública genérica', async () => {
     const cookie = await session();
