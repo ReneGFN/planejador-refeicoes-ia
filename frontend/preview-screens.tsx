@@ -219,7 +219,7 @@ export function PreviewScreens() {
     const description = note ? `${title} — ${note}` : title;
     if (modal.kind === "diario") try {
       if (modal.entry?.remote) await api.meals.update({ id, description: modal.entry.title, eaten_at: modal.entry.eatenAt! }, description);
-      else { const response = await api.meals.create(description); const created = await api.meals.list(); setDiary(created.map(meal => ({ id: meal.id, title: meal.description, note: "", eatenAt: meal.eaten_at, remote: true }))); setConnected(true); setModal(null); setMessage("Refeição salva."); return response; }
+      else { const state = await api.meals.create(description); setDiary(previous => [{ id: state.meal.id, title: state.meal.description, note: "", eatenAt: state.meal.eaten_at, remote: true }, ...previous]); setConnected(true); setModal(null); setMessage("Refeição salva."); return state; }
     } catch (e) { if (!(e instanceof ApiError) || e.code !== "NOT_READY") setMessage(e instanceof Error ? e.message : "Não foi possível salvar."); }
     set(prev => modal.entry ? prev.map(item => item.id === id ? { ...item, title, note } : item) : [...prev, { id, title, note, eatenAt: new Date().toISOString() }]);
     setModal(null); setMessage(connected ? "Alteração salva." : "Salvo no modo local.");

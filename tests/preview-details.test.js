@@ -149,6 +149,9 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(screens.includes('!plan.mealLog && plan.planId'));
   assert.ok(screens.includes('"Comi isso"'));
   assert.ok(client.includes('source: "plan_suggestion", ...selection'));
+  assert.ok(client.includes('source: "manual", description, confirmed_consumed: true'));
+  assert.ok(!client.includes('source: "manual", description, eaten_at: new Date().toISOString()'));
+  assert.ok(!screens.includes('const created = await api.meals.list()'));
   assert.ok(!screens.includes('const eatenAt = new Date(Date.now() - 60_000).toISOString()'));
   const ratingBlock = screens.slice(screens.indexOf('async function saveRating'), screens.indexOf('const removePlan', screens.indexOf('async function saveRating')));
   assert.ok(ratingBlock.indexOf('await api.meals.rate') < ratingBlock.indexOf('setPlans(previous'));

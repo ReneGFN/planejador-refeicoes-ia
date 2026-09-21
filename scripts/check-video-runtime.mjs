@@ -60,6 +60,22 @@ export async function checkVideoRuntime({ db, send, session, scenario, calls, po
     assert.equal(await count('meal_logs'), 0);
     assert.equal((await db.prepare("SELECT count(*) n FROM usage_reservations WHERE operation IN ('generation','vision')").first()).n, 1);
   });
+  await check('payload real com plano de outra sessão retorna 400 no campo input.plan_id', async () => {
+    const owner = await session(), planId = await makePlan(owner), other = await session();
+    const payload = { version: 1, plan_id: planId, side: 'cook', suggestion_index: 0 };
+    const observed = [], originalLog = console.log;
+    let response;
+    try {
+      console.log = value => observed.push(value);
+      response = await video(other, payload);
+    } finally { console.log = originalLog; }
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Confira a alternativa escolhida.' });
+    const event = observed.map(value => { try { return JSON.parse(value); } catch { return null; } })
+      .find(value => value?.event === 'contract_failure');
+    assert.deepEqual(event, { event: 'contract_failure', operation: 'video', field: 'input.plan_id' });
+    assert.equal(await searches(), 0);
+  });
   await check('cache entre visitantes sem nova reserva; flag desligada não entrega cache', async () => {
     const a = await session(), aid = await makePlan(a), b = await session(), bid = await makePlan(b);
     await result(await video(a, choose(aid)), 'found');

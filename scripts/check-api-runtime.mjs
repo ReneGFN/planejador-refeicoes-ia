@@ -135,6 +135,9 @@ const { outputFiles } = await build({
       if (path === '/meal-logs' || path.startsWith('/meal-logs/')) {
         return handlers.mealLogs({ request, env, params: path === '/meal-logs' ? {} : { id: path.slice('/meal-logs/'.length) } });
       }
+      if (path === '/plans' || path.startsWith('/plans/')) {
+        return handlers.plans({ request, env, params: path === '/plans' ? {} : { id: path.slice('/plans/'.length) } });
+      }
       if (path === '/bootstrap') return handlers.bootstrap({ request, env });
       return path === '/history' ? handlers.history({ request, env })
         : path === '/preferences' ? handlers.preferences({ request, env }) : path === '/session' ? handlers.session({ request, env })
@@ -561,6 +564,55 @@ try {
     assert.deepEqual(Object.keys(data).sort(), ['meals', 'pantry', 'plans', 'preferences']);
     const after = (await db.prepare("SELECT COUNT(*) n FROM usage_reservations WHERE operation = 'ingress'").first()).n;
     assert.equal(after - before, 1);
+  });
+  await scenario('abertura: bootstrap exige sessão e mesma origem', async () => {
+    assert.equal((await send('/bootstrap', { method: 'GET' })).status, 401);
+    const cookie = await session();
+    assert.equal((await send('/bootstrap', { method: 'GET', cookie, headers: { Origin: 'https://evil.example' } })).status, 403);
+    assert.equal((await send('/bootstrap', { method: 'GET', cookie, headers: { 'Sec-Fetch-Site': 'cross-site' } })).status, 403);
+  });
+  await scenario('abertura: bootstrap respeita flags e equivale às quatro leituras separadas', async () => {
+    const cookie = await session();
+    const enabled = { DIARY_ENABLED: 'true', PANTRY_ENABLED: 'true', PERSONALIZATION_ENABLED: 'true' };
+    assert.equal((await send('/meal-logs', { cookie, overrides: enabled, body: {
+      version: 1, source: 'manual', description: 'Almoço do diário', confirmed_consumed: true,
+    } })).status, 201);
+    assert.equal((await send('/pantry', { cookie, overrides: enabled, body: {
+      version: 1, name: 'Arroz', quantity: 500, unit: 'g',
+    } })).status, 201);
+    assert.equal((await send('/preferences', { method: 'PUT', cookie, overrides: enabled, body: {
+      version: 1, use_history: true, use_pantry: true, defaults: {},
+    } })).status, 200);
+    assert.equal((await send('/generate', { cookie, body: {
+      mode: 'cook', meal: 'jantar', people: 2, time_minutes: 20, ingredient_policy: 'suggest', ingredients: [],
+    } })).status, 200);
+
+    const separate = {};
+    for (const [key, path] of [['meals', '/meal-logs?limit=50'], ['pantry', '/pantry'], ['preferences', '/preferences'], ['plans', '/plans']]) {
+      const response = await send(path, { method: 'GET', cookie, overrides: enabled });
+      assert.equal(response.status, 200); separate[key] = (await response.json()).data;
+    }
+    const aggregate = await send('/bootstrap', { method: 'GET', cookie, overrides: enabled });
+    assert.equal(aggregate.status, 200);
+    assert.deepEqual((await aggregate.json()).data, separate);
+
+    const disabled = await send('/bootstrap', { method: 'GET', cookie, overrides: {
+      DIARY_ENABLED: 'false', PANTRY_ENABLED: 'false', PERSONALIZATION_ENABLED: 'false',
+    } });
+    assert.equal(disabled.status, 200);
+    const hidden = (await disabled.json()).data;
+    assert.deepEqual(hidden.meals, []); assert.deepEqual(hidden.pantry, []);
+    assert.deepEqual(hidden.preferences, { version: 1, use_history: false, use_pantry: false, defaults: {} });
+    assert.equal(hidden.plans.length, 1); assert.equal(Object.hasOwn(hidden.plans[0], 'meal_logs'), false);
+  });
+  await scenario('diário manual: horário omitido usa servidor e não depende do relógio do cliente', async () => {
+    const cookie = await session(), before = Date.now();
+    const response = await send('/meal-logs', { cookie, overrides: { DIARY_ENABLED: 'true' }, body: {
+      version: 1, source: 'manual', description: 'Relógio divergente', confirmed_consumed: true,
+    } });
+    const after = Date.now(); assert.equal(response.status, 201, await response.clone().text());
+    const created = (await response.json()).data;
+    assert.ok(Date.parse(created.meal.eaten_at) >= before && Date.parse(created.meal.eaten_at) <= after);
   });
   await scenario('diário: data manual futura mantém resposta pública genérica', async () => {
     const cookie = await session();

@@ -108,6 +108,9 @@ test('diário contrato: confirmação explícita, campos fechados e limites sem 
   const selected = { version: 1, source: 'plan_suggestion', plan_id: crypto.randomUUID(), side: 'cook', suggestion_index: 0, confirmed_consumed: true };
   assert.equal(validateMealCreate(selected, { now: serverNow }).eaten_at, '2026-09-12T12:00:00.000Z');
   assert.throws(() => validateMealCreate({ ...selected, eaten_at: '2099-01-01T00:00:00Z' }, { now: serverNow }));
+  const manualNow = { version: 1, source: 'manual', description: 'Almoço', confirmed_consumed: true };
+  assert.equal(validateMealCreate(manualNow, { now: serverNow }).eaten_at, '2026-09-12T12:00:00.000Z');
+  assert.throws(() => validateMealCreate({ ...manualNow, eaten_at: '2099-01-01T00:00:00Z' }, { now: serverNow }));
   for (const value of [null, {}, manual({ confirmed_consumed: false }), manual({ confirmed_consumed: 'true' }),
     manual({ description: '' }), manual({ description: 'a'.repeat(401) }), manual({ visitor_id: crypto.randomUUID() }),
     manual({ photo: 'foto' }), manual({ steps: [] }), manual({ use_history: true }), manual({ version: 2 }),

@@ -41,7 +41,8 @@ export const api = {
   },
   meals: {
     list: async () => (await request("/api/meal-logs?limit=50")).data as MealRecord[],
-    create: async (description: string) => request("/api/meal-logs", { method: "POST", body: JSON.stringify({ version: 1, source: "manual", description, eaten_at: new Date().toISOString(), confirmed_consumed: true }) }),
+    create: async (description: string) =>
+      (await request("/api/meal-logs", { method: "POST", body: JSON.stringify({ version: 1, source: "manual", description, confirmed_consumed: true }) })).data as MealCreateState,
     consume: async (selection: { plan_id: string; side: "cook" | "ready"; suggestion_index: number }) =>
       (await request("/api/meal-logs", { method: "POST", body: JSON.stringify({ version: 1, source: "plan_suggestion", ...selection, confirmed_consumed: true }) })).data as MealCreateState,
     update: async (meal: MealRecord, description: string) => request(`/api/meal-logs/${meal.id}`, { method: "PUT", body: JSON.stringify({ version: 1, description, eaten_at: meal.eaten_at, ...(meal.servings_consumed ? { servings_consumed: meal.servings_consumed } : {}) }) }),

@@ -50,10 +50,11 @@ export function validateMealCreate(raw, options) {
     : [...common, 'plan_id', 'side', 'suggestion_index']);
   if (raw.confirmed_consumed !== true) invalid('confirmed_consumed', 'confirme explicitamente que consumiu');
   // Uma confirmação "Comi isso" representa o instante em que o servidor a recebeu.
-  // A data manual continua explícita para permitir registros retroativos.
+  // Uma criação manual sem data também significa "agora"; a data explícita fica
+  // reservada para registros retroativos e continua sujeita à validação completa.
   const now = options?.now ?? Date.now();
   const result = { version: 1, source: raw.source,
-    eaten_at: isManual ? mealDate(raw.eaten_at, { now }) : new Date(now).toISOString(), ...servings(raw) };
+    eaten_at: isManual && Object.hasOwn(raw, 'eaten_at') ? mealDate(raw.eaten_at, { now }) : new Date(now).toISOString(), ...servings(raw) };
   if (raw.source === 'manual') return { ...result, description: description(raw.description) };
   if (raw.source !== 'plan_suggestion') invalid('source');
   if (!['cook', 'ready'].includes(raw.side)) invalid('side');
