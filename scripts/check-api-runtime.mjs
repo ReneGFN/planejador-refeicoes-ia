@@ -308,7 +308,7 @@ try {
     ]) {
       const response = await send('/generate', { cookie, body });
       assert.equal(response.status, 400);
-      assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Confira os campos do pedido.', quotaReserved: false });
+      assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Não foi possível processar este pedido agora. Tente novamente.', quotaReserved: false });
     }
     assert.equal(await calls(), 0);
     assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM usage_reservations WHERE operation='generation'").first()).n, 0);
@@ -625,7 +625,7 @@ try {
       version: 1, source: 'manual', description: 'Jantar', eaten_at: new Date(Date.now() + 60_000).toISOString(), confirmed_consumed: true,
     } });
     assert.equal(response.status, 400);
-    assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Confira os campos do pedido.', quotaReserved: false });
+    assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Não foi possível processar este pedido agora. Tente novamente.', quotaReserved: false });
   });
   await scenario('histórico: compare recalcula a partir do pedido salvo, inclusive hora zero e campos opcionais', async () => {
     const cookie = await session(), key = crypto.randomUUID();

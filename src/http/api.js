@@ -32,7 +32,7 @@ const ERRORS = {
   ORIGIN_FORBIDDEN: [403, 'Abra o aplicativo pelo endereço original e tente novamente.'],
   SESSION_REQUIRED: [401, 'Sua sessão não está disponível. Inicie uma sessão para continuar.'],
   INVALID_REQUEST_KEY: [400, 'O pedido precisa de um identificador válido.'],
-  INVALID_INPUT: [400, 'Confira os campos do pedido.'],
+  INVALID_INPUT: [400, 'Não foi possível processar este pedido agora. Tente novamente.'],
   UNSUPPORTED_MEDIA: [415, 'Envie o pedido no formato esperado.'],
   BODY_TOO_LARGE: [413, 'O pedido excede o tamanho permitido.'],
   REQUEST_CANCELLED: [400, 'O envio foi cancelado.'],

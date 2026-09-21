@@ -185,6 +185,12 @@ test('diário seleção: índice, lado, plano ausente/expirado e versão inváli
   assert.equal((await h.send({ body: h.selected(plan) })).status, 400);
   assert.equal(h.count('meal_logs'), 0); assert.equal(h.count('meal_log_mutations'), 0);
 });
+test('diário HTTP: entrada inválida usa mensagem honesta sem revelar o campo interno', async t => {
+  const h = await setup(t), response = await h.send({ body: { version: 1 } });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { code: 'INVALID_INPUT',
+    message: 'Não foi possível processar este pedido agora. Tente novamente.', quotaReserved: false });
+});
 test('diário idempotência: reenvio 409, conteúdo diferente não altera ação anterior, duas ações iguais são permitidas', async t => {
   const h = await setup(t), key = crypto.randomUUID(), id = await h.create(manual(), { key });
   const response = await h.send({ body: manual({ description: 'Outro texto' }), key });

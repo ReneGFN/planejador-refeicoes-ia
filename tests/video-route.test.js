@@ -136,6 +136,13 @@ test('vídeo HTTP: formato, tamanho, chave, método e query são rejeitados ante
   assert.equal(h.state.calls, 0);
 });
 
+test('vídeo HTTP: seleção inválida não culpa a pessoa nem revela o campo interno', async t => {
+  const h = setup(t), response = await h.send({ version: 1 });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { code: 'INVALID_INPUT',
+    message: 'Não foi possível preparar o apoio em vídeo agora. Sua receita continua disponível.' });
+});
+
 for (const scenario of ['empty', 'invalid', 'extra', 'large', 'quota', '403', '429', '503', 'network', 'timeout']) {
   test(`vídeo HTTP: ${scenario} devolve alternativa 200 sem diagnóstico privado ou retry`, async t => {
     const h = setup(t); h.state.scenario = scenario;

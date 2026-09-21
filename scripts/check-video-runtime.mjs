@@ -70,7 +70,7 @@ export async function checkVideoRuntime({ db, send, session, scenario, calls, po
       response = await video(other, payload);
     } finally { console.log = originalLog; }
     assert.equal(response.status, 400);
-    assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Confira a alternativa escolhida.' });
+    assert.deepEqual(await response.json(), { code: 'INVALID_INPUT', message: 'Não foi possível preparar o apoio em vídeo agora. Sua receita continua disponível.' });
     const event = observed.map(value => { try { return JSON.parse(value); } catch { return null; } })
       .find(value => value?.event === 'contract_failure');
     assert.deepEqual(event, { event: 'contract_failure', operation: 'video', field: 'input.plan_id' });
