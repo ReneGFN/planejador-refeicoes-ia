@@ -1,4 +1,4 @@
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
-  Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; img-src 'self' blob:; style-src 'self' 'sha256-TooBTuytZT8Sazl76qKyBEF4k84RMOSZwFjr1fW2n8I=' 'sha256-ErWbWTbs5rklDSY7HG0ubFnasd3RC0RSBWrxOaCCuxk='; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

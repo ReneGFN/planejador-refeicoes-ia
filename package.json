@@ -7,13 +7,36 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "wrangler pages dev public",
-    "check": "node --check functions/api/health.js && node --check functions/api/generate.js",
+    "dev": "npm run build:ui && wrangler pages dev public",
+    "dev:ui": "vite build --watch",
+    "preview:ui": "npm run build:ui && node scripts/preview-ui.mjs",
+    "check:ui": "tsc --noEmit",
+    "build:ui": "npm run check:ui && vite build",
+    "check": "node --check functions/api/health.js && node --check functions/api/generate.js && node --check functions/api/session.js && node --check functions/api/analyze-ingredients.js && node --check functions/api/video.js",
     "test": "node --test",
+    "test:integration": "node scripts/check-api-runtime.mjs",
+    "measure:images": "node scripts/measure-image-path.mjs",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "build": "npm run check && wrangler pages functions build --outdir .build"
+    "build": "npm run build:ui && npm run check && wrangler pages functions build --outdir .build"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.0",
     "wrangler": "4.129.0"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.2.0",
+    "lucide-react": "^1.45.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0",
+    "usehooks-ts": "^3.1.1"
   }
 }
