@@ -216,6 +216,16 @@ test('planejador: texto natural, até 20 pessoas, ingredientes opcionais e orça
   assert.ok(app.includes("$('people-increment').addEventListener('click', () => changePeople(1))"));
 });
 
+test('planejador: campos móveis ficam alinhados e tempo chega a duas horas', () => {
+  const page = readFileSync(resolve(root, 'public/index.html'), 'utf8');
+  const details = readFileSync(resolve(root, 'frontend/preview-details.css'), 'utf8');
+  assert.ok(page.includes('<option value="90">Até 1 h 30 min</option>'));
+  assert.ok(page.includes('<option value="120">Até 2 h</option>'));
+  assert.ok(details.includes('#form .field-grid > .field > .label'));
+  assert.ok(details.includes('min-height: 2.5rem'));
+  assert.ok(details.includes('#form .number-stepper { width: 100%; max-width: none; }'));
+});
+
 test('preview: apoio em vídeo usa a rota autorizada, aviso contratual e link externo seguro', () => {
   const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
   const client = readFileSync(resolve(root, 'frontend/api-client.ts'), 'utf8');
