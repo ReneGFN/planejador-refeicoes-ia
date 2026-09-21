@@ -36,6 +36,8 @@ test("public demo has a stable path outside the regular PWA navigation", async (
   assert.ok(screens.includes('(location.pathname ?? "").replace(/\\/+$/u, "") === "/demonstracao"'));
   assert.ok(!navigation.includes('href: "/demonstracao"'));
   for (const asset of ["/theme-init.js", "/styles.css", "/ui/navigation.css", "/app.js", "/ui/navigation.js"]) assert.ok(page.includes(asset));
+  assert.ok(page.includes("/ui/navigation.js?v=demo-1"));
+  assert.ok(page.includes("/ui/navigation.css?v=demo-1"));
   assert.ok(readme.includes("https://planejador-refeicoes-ia.pages.dev/demonstracao/"));
 });
 
