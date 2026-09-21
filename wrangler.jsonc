@@ -59,7 +59,7 @@
         "HISTORY_DELETION_ENABLED": "true",
         "VIDEO_ENABLED": "false",
         "VIDEO_QUOTA_POLICY_JSON": "{}",
-        "QUOTA_POLICY_JSON": "{\"ingress\":{\"visitorDay\":1,\"visitorMinute\":1,\"networkDay\":240,\"networkMinute\":30,\"globalDay\":1000,\"globalMinute\":120,\"dayTokens\":0,\"minuteTokens\":0,\"reserveTokens\":0},\"session\":{\"visitorDay\":1,\"visitorMinute\":1,\"networkDay\":60,\"networkMinute\":10,\"globalDay\":500,\"globalMinute\":60,\"dayTokens\":0,\"minuteTokens\":0,\"reserveTokens\":0},\"generation\":{\"visitorDay\":3,\"visitorMinute\":1,\"networkDay\":24,\"networkMinute\":2,\"globalDay\":40,\"globalMinute\":2,\"dayTokens\":180000,\"minuteTokens\":7000,\"reserveTokens\":6144},\"vision\":{\"visitorDay\":2,\"visitorMinute\":1,\"networkDay\":8,\"networkMinute\":1,\"globalDay\":10,\"globalMinute\":1,\"dayTokens\":60000,\"minuteTokens\":7000,\"reserveTokens\":4096}}",
+        "QUOTA_POLICY_JSON": "{\"ingress\":{\"visitorDay\":1,\"visitorMinute\":1,\"networkDay\":240,\"networkMinute\":30,\"globalDay\":1000,\"globalMinute\":120,\"dayTokens\":0,\"minuteTokens\":0,\"reserveTokens\":0},\"session\":{\"visitorDay\":1,\"visitorMinute\":1,\"networkDay\":60,\"networkMinute\":10,\"globalDay\":500,\"globalMinute\":60,\"dayTokens\":0,\"minuteTokens\":0,\"reserveTokens\":0},\"generation\":{\"visitorDay\":3,\"visitorMinute\":1,\"networkDay\":24,\"networkMinute\":2,\"globalDay\":60,\"globalMinute\":2,\"dayTokens\":180000,\"minuteTokens\":7000,\"reserveTokens\":6144},\"vision\":{\"visitorDay\":2,\"visitorMinute\":1,\"networkDay\":8,\"networkMinute\":1,\"globalDay\":10,\"globalMinute\":1,\"dayTokens\":60000,\"minuteTokens\":7000,\"reserveTokens\":4096}}",
         "MAX_CONTEXT_CHARACTERS": "1200"
       },
       "d1_databases": [{

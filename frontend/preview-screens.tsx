@@ -53,6 +53,16 @@ function planCards(records: PlanRecord[]): Plan[] {
   }));
 }
 
+export function upsertConsumedPlan(previous: Plan[], meta: SuggestionMeta, mealLog: PlanMeal): Plan[] {
+  const existing = previous.some(plan => plan.planId === meta.__planId
+    && plan.mode === meta.__mode && plan.suggestionIndex === meta.__index);
+  if (existing) return previous.map(plan => plan.planId === meta.__planId
+    && plan.mode === meta.__mode && plan.suggestionIndex === meta.__index ? { ...plan, mealLog } : plan);
+  const { __planId, __mode, __index, ...suggestion } = meta;
+  return [{ id: `${__planId}:${__index}`, planId: __planId, mode: __mode,
+    suggestionIndex: __index, suggestion, mealLog }, ...previous];
+}
+
 function Empty({ icon, children }: { icon: keyof typeof I; children: ReactNode }) {
   const Icon = I[icon];
   return <div className="preview-empty"><span className="empty-icon"><Icon /></span><p>{children}</p></div>;
@@ -145,6 +155,7 @@ export function PreviewScreens() {
   const [message, setMessage] = useState("");
   const [connected, setConnected] = useState(false);
   const [ratingPending, setRatingPending] = useState<string | null>(null);
+  const [openedPlanId, setOpenedPlanId] = useState<string | null>(null);
   const [pendingActions, setPendingActions] = useState<Set<string>>(() => new Set());
   const screen = useRef<HTMLDivElement>(null);
   const initialRoute = useRef(true);
@@ -170,10 +181,12 @@ export function PreviewScreens() {
       const state = await api.meals.consume({ plan_id: meta.__planId, side: meta.__mode, suggestion_index: meta.__index });
       setDiary(previous => previous.some(item => item.id === state.meal.id) ? previous
         : [{ id: state.meal.id, title: state.meal.description, note: "", eatenAt: state.meal.eaten_at, remote: true }, ...previous]);
-      if (state.plan_meal_log) setPlans(previous => previous.map(plan => plan.planId === meta.__planId
-        && plan.mode === meta.__mode && plan.suggestionIndex === meta.__index
-        ? { ...plan, mealLog: { id: state.plan_meal_log!.id, rating: state.plan_meal_log!.rating } } : plan));
+      const cardId = `${meta.__planId}:${meta.__index}`;
+      if (state.plan_meal_log) setPlans(previous => upsertConsumedPlan(previous, meta,
+        { id: state.plan_meal_log!.id, rating: state.plan_meal_log!.rating }));
+      setOpenedPlanId(cardId);
       setMessage("Refeição registrada no diário.");
+      go("planos");
     } catch (e) { setMessage(e instanceof Error ? e.message : "Não foi possível registrar."); }
     finally { finishAction(action); }
   };
@@ -281,7 +294,7 @@ export function PreviewScreens() {
         {plans.map(plan => {
           const suggestion: SuggestionMeta = { ...plan.suggestion, __planId: plan.planId, __mode: plan.mode, __index: plan.suggestionIndex };
           return <SwipeAction key={plan.id} label="Excluir plano" onAction={() => setRemove({kind:"planos",id:plan.id,title:plan.suggestion.title})}>
-            <details className="saved-plan"><summary><I.history /><span>{suggestion.title}</span><I.chevDown /></summary><div className="saved-plan-body">
+            <details className="saved-plan" open={openedPlanId === plan.id ? true : undefined}><summary><I.history /><span>{suggestion.title}</span><I.chevDown /></summary><div className="saved-plan-body">
               {suggestion.description && <p>{suggestion.description}</p>}
               <p className="result-meta"><I.people size={15} />{suggestion.servings ?? "—"} pessoas {suggestion.total_minutes && <><I.clock size={15} />{suggestion.total_minutes} min</>}</p>
               {suggestion.ingredients && <section className="saved-plan-section"><h3>Ingredientes</h3><ul>{suggestion.ingredients.map((ingredient, index) => <li key={index}>{formatIngredient(ingredient)}</li>)}</ul></section>}

@@ -123,6 +123,7 @@ test('preview: cartão semanal deriva apenas do diário e abre o gerador de imag
 
 test('preview: avaliação de refeição usa pratos, só aparece para consumo vinculado e confirma no servidor', () => {
   const { MealRating } = loadComponent('components/ui/meal-rating.tsx');
+  const { upsertConsumedPlan } = loadComponent('frontend/preview-screens.tsx');
   const noRating = renderToStaticMarkup(React.createElement(MealRating, { value: null, onRate() {}, onRemove() {} }));
   const rated = renderToStaticMarkup(React.createElement(MealRating, { value: 1, onRate() {}, onRemove() {} }));
   assert.ok(noRating.includes('Ainda sem avaliação'));
@@ -143,6 +144,15 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(screens.includes('const consumePlanSuggestion = async'));
   assert.ok(screens.includes('await api.meals.consume'));
   assert.ok(screens.includes('state.plan_meal_log'));
+  const meta = { title: 'Arroz', __planId: 'plan-1', __mode: 'cook', __index: 1 };
+  const inserted = upsertConsumedPlan([], meta, { id: 'meal-1', rating: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(inserted)), [{ id: 'plan-1:1', planId: 'plan-1', mode: 'cook', suggestionIndex: 1,
+    suggestion: { title: 'Arroz' }, mealLog: { id: 'meal-1', rating: null } }]);
+  assert.equal(upsertConsumedPlan(inserted, meta, { id: 'meal-1', rating: 5 }).length, 1);
+  assert.equal(upsertConsumedPlan(inserted, meta, { id: 'meal-1', rating: 5 })[0].mealLog.rating, 5);
+  assert.ok(screens.includes('setOpenedPlanId(cardId)'));
+  assert.ok(screens.includes('go("planos")'));
+  assert.ok(screens.includes('open={openedPlanId === plan.id ? true : undefined}'));
   const consumeBlock = screens.slice(screens.indexOf('const consumePlanSuggestion = async'), screens.indexOf('useEffect(() =>', screens.indexOf('const consumePlanSuggestion = async')));
   assert.ok(!consumeBlock.includes('await api.meals.list()'));
   assert.ok(!consumeBlock.includes('refreshPlans'));
@@ -156,6 +166,7 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   const ratingBlock = screens.slice(screens.indexOf('async function saveRating'), screens.indexOf('const removePlan', screens.indexOf('async function saveRating')));
   assert.ok(ratingBlock.indexOf('await api.meals.rate') < ratingBlock.indexOf('setPlans(previous'));
   assert.ok(client.includes('rating: number | null'));
+  assert.ok(readFileSync(resolve(root, 'wrangler.jsonc'), 'utf8').includes('\\"globalDay\\":60'));
 });
 
 test('preview: menu mantém todos os nomes visíveis abaixo dos ícones', () => {
