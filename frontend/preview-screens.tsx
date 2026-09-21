@@ -74,6 +74,12 @@ export function upsertConsumedPlan(previous: Plan[], meta: SuggestionMeta, mealL
     suggestionIndex: __index, suggestion, mealLog }, ...previous];
 }
 
+export function applyRatingToPlans(previous: Plan[], mealId: string, rating: number | null): Plan[] {
+  return previous.map(plan => plan.mealLog?.id === mealId
+    ? { ...plan, mealLog: { ...plan.mealLog, rating } }
+    : plan);
+}
+
 function Empty({ icon, children }: { icon: keyof typeof I; children: ReactNode }) {
   const Icon = I[icon];
   return <div className="preview-empty"><span className="empty-icon"><Icon /></span><p>{children}</p></div>;
@@ -266,7 +272,7 @@ export function PreviewScreens() {
     setRatingPending(mealId);
     try {
       await api.meals.rate(mealId, rating);
-      setPlans(previous => previous.map(plan => plan.mealLog?.id === mealId ? { ...plan, mealLog: { ...plan.mealLog, rating } } : plan));
+      setPlans(previous => applyRatingToPlans(previous, mealId, rating));
       setMessage(rating === null ? "Avaliação removida." : "Avaliação salva.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível salvar a avaliação. A nota anterior foi mantida.");

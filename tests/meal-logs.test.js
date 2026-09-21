@@ -210,6 +210,7 @@ test('diário seleção: servidor fixa data e chave; relógio do cliente não mu
   assert.equal(firstValue.eaten_at, new Date(beforeMidnight).toISOString());
   const repeated = await mutateMeal(h.env, h.visitor, 'create', null, selected, crypto.randomUUID(), { now: beforeMidnight + 500 });
   assert.equal(repeated.duplicate, true); assert.equal(repeated.alreadyRegistered, true);
+  assert.equal(h.count('meal_logs'), 1);
   const anotherDay = await mutateMeal(h.env, h.visitor, 'create', null, selected, crypto.randomUUID(), { now: afterMidnight });
   assert.equal(anotherDay.duplicate, false); assert.equal(h.count('meal_logs'), 2);
 });
