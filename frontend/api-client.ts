@@ -32,7 +32,13 @@ export type MealCreateState = { id: string; operation: "create"; applied: true; 
 export type PantryRecord = { id: string; name: string; quantity?: number; unit?: string; expires_at?: string; revision: number };
 export type PreferencesRecord = { version: 1; use_history: boolean; use_pantry?: boolean; defaults: Record<string, unknown> };
 export type PlanMealLog = { id: string; side: "cook" | "ready"; suggestion_index: number; rating: number | null };
-export type PlanRecord = { id: string; request: { mode: "cook" | "ready" }; data: { mode: "cook" | "ready"; suggestions: Array<Record<string, unknown>> }; meal_logs?: PlanMealLog[] };
+type PlanSuggestion = Record<string, unknown>;
+type SuggestedPlanSide = { status: "suggested"; suggestions: PlanSuggestion[]; reason?: never };
+type DeclinedPlanSide = { status: "not_suggested"; reason: string; suggestions?: never };
+type PlanSide = SuggestedPlanSide | DeclinedPlanSide;
+type StandalonePlan = { request: { mode: "cook" | "ready" }; data: { mode: "cook" | "ready"; suggestions: PlanSuggestion[] } };
+type ComparisonPlan = { request: { mode: "compare" }; data: { mode: "compare"; cook: PlanSide; ready: PlanSide } };
+export type PlanRecord = { id: string; meal_logs?: PlanMealLog[] } & (StandalonePlan | ComparisonPlan);
 export type VideoSupport = { version: 1; status: "found" | "not_found" | "unavailable" | "disabled"; video: { id: string; title: string; channel_title: string } | null; notice: { title: string; text: string }; search: { query: string; url: string }; message: string };
 
 export const api = {

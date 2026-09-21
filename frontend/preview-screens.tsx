@@ -44,13 +44,24 @@ function mealForSuggestion(meals: Array<{ id: string; side: "cook" | "ready"; su
   return matches.find(meal => meal.rating !== null) ?? matches[0] ?? null;
 }
 
-function planCards(records: PlanRecord[]): Plan[] {
-  return records.flatMap(plan => plan.data.suggestions.map((suggestion, index) => {
-    const meal = mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index);
-    return { id: `${plan.id}:${index}`, planId: plan.id, mode: plan.data.mode, suggestionIndex: index,
-      suggestion: { ...(suggestion as unknown as Suggestion), __planId: plan.id, __mode: plan.data.mode, __index: index },
+function cardsForSide(plan: PlanRecord, mode: "cook" | "ready", suggestions: Array<Record<string, unknown>>, compared = false): Plan[] {
+  return suggestions.map((suggestion, index) => {
+    const meal = mealForSuggestion(plan.meal_logs ?? [], mode, index);
+    return { id: compared ? `${plan.id}:${mode}:${index}` : `${plan.id}:${index}`, planId: plan.id, mode, suggestionIndex: index,
+      suggestion: { ...(suggestion as unknown as Suggestion), __planId: plan.id, __mode: mode, __index: index },
       ...(meal ? { mealLog: { id: meal.id, rating: meal.rating } } : {}) };
-  }));
+  });
+}
+
+export function planCards(records: PlanRecord[]): Plan[] {
+  return records.flatMap(plan => {
+    const data = plan.data;
+    if (data.mode !== "compare") return cardsForSide(plan, data.mode, data.suggestions);
+    return (["cook", "ready"] as const).flatMap(mode => {
+      const side = data[mode];
+      return side.status === "suggested" ? cardsForSide(plan, mode, side.suggestions, true) : [];
+    });
+  });
 }
 
 export function upsertConsumedPlan(previous: Plan[], meta: SuggestionMeta, mealLog: PlanMeal): Plan[] {
@@ -324,7 +335,7 @@ export function PreviewScreens() {
             const action = `consume:${meta.__planId}:${meta.__mode}:${meta.__index}`;
             const pending = pendingActions.has(action);
             return <button className="button secondary pressable" disabled={pending} onClick={() => consumePlanSuggestion(meta)}><I.check />{pending ? "Salvando…" : "Comi isso"}</button>;
-          })()}<button className="button primary pressable" disabled={plans.some(p=>p.suggestion===s)} onClick={() => { const meta = s as SuggestionMeta; setPlans(prev=>[...prev,{id:crypto.randomUUID(),suggestion:s,planId:meta.__planId,mode:meta.__mode,suggestionIndex:meta.__index}]); setMessage("Sugestão salva."); }}><I.save />{plans.some(p=>p.suggestion===s) ? "Salvo" : "Salvar sugestão"}</button></div>
+          })()}</div>
           <VideoSupportBlock suggestion={s as SuggestionMeta} />
         </article>)}
       </>}

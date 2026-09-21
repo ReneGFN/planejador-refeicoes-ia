@@ -136,7 +136,7 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   const client = readFileSync(resolve(root, 'frontend/api-client.ts'), 'utf8');
   assert.ok(component.includes('Utensils') && component.includes('motion.button'));
   assert.ok(component.includes('disabled={pending}'));
-  assert.ok(screens.includes('mealForSuggestion(plan.meal_logs ?? [], plan.data.mode, index)'));
+  assert.ok(screens.includes('mealForSuggestion(plan.meal_logs ?? [], mode, index)'));
   assert.ok(screens.includes('matches.find(meal => meal.rating !== null) ?? matches[0] ?? null'));
   assert.ok(screens.includes('{plan.mealLog && <MealRating'));
   assert.ok(!screens.includes('plan.mealLogs?.map'));
@@ -168,6 +168,34 @@ test('preview: avaliação de refeição usa pratos, só aparece para consumo vi
   assert.ok(client.includes('rating: number | null'));
   assert.ok(readFileSync(resolve(root, 'wrangler.jsonc'), 'utf8').includes('\\"globalDay\\":60'));
   assert.ok(readFileSync(resolve(root, 'wrangler.jsonc'), 'utf8').includes('\\"generation\\":{\\"visitorDay\\":5'));
+});
+
+test('planos: comparação vira cartões por lado e não oferece salvamento local fictício', () => {
+  const { planCards } = loadComponent('frontend/preview-screens.tsx');
+  const records = [{
+    id: 'compare-1', request: { mode: 'compare' }, data: {
+      mode: 'compare',
+      cook: { status: 'suggested', suggestions: [{ title: 'Arroz', servings: 2 }] },
+      ready: { status: 'suggested', suggestions: [{ title: 'Marmita', servings: 2 }] },
+    },
+    meal_logs: [{ id: 'meal-ready', side: 'ready', suggestion_index: 0, rating: 4 }],
+  }, {
+    id: 'compare-2', request: { mode: 'compare' }, data: {
+      mode: 'compare',
+      cook: { status: 'not_suggested', reason: 'Sem equipamento.' },
+      ready: { status: 'suggested', suggestions: [{ title: 'Sopa pronta', servings: 1 }] },
+    }, meal_logs: [],
+  }];
+  const cards = JSON.parse(JSON.stringify(planCards(records)));
+  assert.deepEqual(cards.map(card => [card.id, card.mode, card.suggestion.title]), [
+    ['compare-1:cook:0', 'cook', 'Arroz'],
+    ['compare-1:ready:0', 'ready', 'Marmita'],
+    ['compare-2:ready:0', 'ready', 'Sopa pronta'],
+  ]);
+  assert.equal(cards[1].mealLog.rating, 4);
+  const screens = readFileSync(resolve(root, 'frontend/preview-screens.tsx'), 'utf8');
+  assert.ok(!screens.includes('Salvar sugestão'));
+  assert.ok(!screens.includes('Sugestão salva.'));
 });
 
 test('preview: menu mantém todos os nomes visíveis abaixo dos ícones', () => {
